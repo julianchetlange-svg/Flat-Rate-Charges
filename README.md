@@ -32,7 +32,7 @@ Individual rate per unit:
 
 **Aftermarket:** wraps ($3,825 trucks/tractors, $4,625 van bodies) and TMFL kits ($3,825 on 24' TA trucks) are added to delivered cost only for units **36 months or older**; newer units (and planned 2027 units) already carry an all-in delivered cost.
 
-**Missing costs:** assets with no Asset Original Value use a placeholder cost – the average of the 3 same-template units closest in origination date – flagged "Estimated cost" until the real cost is entered on Aftermarket & Costs.
+**Missing costs:** assets with no Asset Original Value use a placeholder cost – the average of the 3 same-template units closest in origination date – applied as the cost (marked "est", info note "Estimated cost") until the next asset upload carries the real value.
 
 **Locations:** 353, 355, 355CD, 356, 359, 450, 489 and 950 are not on flat rate. Their assets are kept and priced for reference but left out of totals. All other locations, including offices (730, 735, 761–767, 900), are charged.
 
