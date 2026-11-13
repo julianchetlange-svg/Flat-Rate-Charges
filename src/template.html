@@ -277,6 +277,7 @@ Monthly charge   = asset-type rate · Annual = monthly × 12</div>
 <script>
 const RAW = __ASSETS__;
 const MAINT = __MAINT__;
+const COST_EST = __COSTEST__;   // placeholder costs for assets missing Asset Original Value
 const UNITMO = __UNITMO__;
 const TUNITS = __TUNITS__.map(u=>({id:u[0],s:u[1],m:u[2],use:u[3],am:u[4],ok:!!u[5],o:u[6],t:u[7]}));
 const ASOF = "2026-11-13";
@@ -447,8 +448,10 @@ function compute(){
     const replaced = REPL.has(a.asset);
     const counted = !(loaner && !S.includeLoaners) && !replaced;
     const ov = S.costOverride[a.asset];
-    const cost = ov!=null ? ov : a.cost;
+    const est = (a.cost==null && ov==null && S.useCostEstimates!==false) ? COST_EST[a.asset] : null;
+    const cost = ov!=null ? ov : (a.cost!=null ? a.cost : (est ? est.cost : null));
     let am = S.amAsset[a.asset]!=null ? S.amAsset[a.asset] : (S.amTemplate[a.template]||0);
+    if(est) flags.push(["Estimated cost","warn",`No Asset Original Value; using ${money(est.cost,0)} = ${est.basis}. Enter the real cost on Aftermarket & Costs.`]);
     if(cost==null) flags.push(["No cost","warn","Asset Original Value is blank (#N/A). Charged the asset-type average; not used in the average. Enter a cost on Aftermarket & Costs."]);
     if(cost!=null && am && Math.sign(am)!==Math.sign(cost)){
       flags.push(["Aftermarket sign","warn",`Aftermarket ${money(am)} had the opposite sign of cost; flipped so it adds.`]);
@@ -469,7 +472,7 @@ function compute(){
     const maint = UM[rtype] ? UM[rtype].amount : C.maint;
     const age = monthsBetween(a.orig);
     if(age!=null && C.life && age>C.life) flags.push(["Past life","info",`In service ${age} months vs ${C.life}-month life; full rate still applies.`]);
-    return {...a, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
+    return {...a, costEstimated: !!est, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
             excluded:isExcluded(a.store), isVar:false};
   });
   // store variable
@@ -638,7 +641,7 @@ function renderSummary(){
 const ACOLS = [
   {k:"store",h:"Store"},{k:"asset",h:"Asset"},{k:"template",h:"Template"},{k:"rtype",h:"Rate type"},{k:"cls",h:"Class"},
   {k:"own",h:"Ownership"},{k:"status",h:"Status"},
-  {k:"cost",h:"Cost w/ tax",num:1,f:r=>r.cost==null?'<span class="pill bad">#N/A</span>':money(r.cost)+(r.costOverridden?' <span class="pill info" title="Cost override">ovr</span>':"")},
+  {k:"cost",h:"Cost w/ tax",num:1,f:r=>r.cost==null?'<span class="pill bad">#N/A</span>':money(r.cost)+(r.costOverridden?' <span class="pill info" title="Cost override">ovr</span>':"")+(r.costEstimated?' <span class="pill warn" title="Estimated from same-type units of similar age">est</span>':"")},
   {k:"am",h:"Aftermarket",num:1,f:r=>r.am?money(r.am):'<span class="muted">—</span>'},
   {k:"delivered",h:"Delivered",num:1,f:r=>money(r.delivered)},
   {k:"resid",h:"Residual",num:1,f:r=>money(r.resid)},
@@ -906,7 +909,7 @@ $("btnExport").onclick = async ()=>{
   ws1["!cols"]=[{wch:8},{wch:26},{wch:7},...Array(11).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, ws1, "Store Summary");
   const assetRow = r=>({"Store":r.store,"Store Name":r.storeName,"Asset":r.asset,"Template":r.template,"Rate Type":r.rtype,"Rate Class":r.cls,"Manufacturer":r.mfr,"Serial":r.serial,"Ownership":r.own,"Status":r.status,"Origination":r.orig,"Age (mo)":r.age,
-    "Cost w/ Tax":r2(r.cost),"Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":S.classes[r.cls].life,"Residual %":S.classes[r.cls].resid/100,"Residual Value":r2(r.resid),
+    "Cost w/ Tax":r2(r.cost),"Cost Estimated":r.costEstimated?"Y":"","Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":S.classes[r.cls].life,"Residual %":S.classes[r.cls].resid/100,"Residual Value":r2(r.resid),
     "Indiv. Base Rate":r2(r.ind.base),"Indiv. Ad Valorem":r2(r.ind.adval),"Indiv. Registration":r2(r.ind.reg),"Indiv. Monthly Rate":r2(r.indMonthly),
     "Maint in Rate":r2(r.maint),"Type Rate":r2(r.typeRate),"Monthly Charge":r2(r.monthly),
     "Charged":r.counted?"Y":"N","Flags":r.flags.map(f=>f[0]).join("; ")});

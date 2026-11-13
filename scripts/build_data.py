@@ -9,7 +9,8 @@ Usage:
   CPM_INDEX_HTML   index.html from julianchetlange-svg/Fleet-CMP-HOUR-Analysis (the YTD cost per mile /
                    hour report, which embeds the Fexa maintenance, miles and hours by asset)
 
-Writes data/assets.json, data/maint_rates.json, data/unitmonth.json and data/tractor_units.json.
+Writes data/assets.json, data/maint_rates.json, data/unitmonth.json, data/tractor_units.json and
+data/cost_estimates.json.
 Then run scripts/build_html.py.
 """
 import sys, json, math, collections, statistics as st
@@ -31,6 +32,28 @@ def assets(path):
             for r in df.itertuples(index=False)]
     (DATA / 'assets.json').write_text(json.dumps(rows, separators=(',', ':')))
     return len(rows)
+
+
+def cost_estimates():
+    """Placeholder cost for assets with no Asset Original Value: average of the 3 same-template units with a cost
+    whose origination date is closest (all same-template units if the asset has no date)."""
+    import datetime as dt
+    A = json.loads((DATA / 'assets.json').read_text())
+    def d(x):
+        try: return dt.date.fromisoformat(str(x)[:10])
+        except Exception: return None
+    out = {}
+    for r in A:
+        if r[10] is not None: continue
+        o = d(r[9])
+        peers = [p for p in A if p[4] == r[4] and p[10] and p[10] > 0 and d(p[9])]
+        if not peers: continue
+        near = sorted(peers, key=lambda p: abs((d(p[9]) - o).days))[:3] if o else peers
+        out[r[3]] = dict(cost=round(sum(p[10] for p in near) / len(near), 2),
+                         basis=f"avg of {len(near)} {r[4]} unit(s) " + (f"originated nearest {r[9]}" if o else "(no origination date)") + ": " +
+                               ", ".join(f"{p[3]} ({p[9]}, ${p[10]:,.0f})" for p in near[:3]))
+    (DATA / 'cost_estimates.json').write_text(json.dumps(out, separators=(',', ':')))
+    return len(out)
 
 
 def cpm(path):
@@ -124,6 +147,7 @@ if __name__ == '__main__':
         sys.exit(__doc__)
     DATA.mkdir(exist_ok=True)
     n = assets(sys.argv[1])
+    ne = cost_estimates()
     d = cpm(sys.argv[2])
     maint_rates(d); unit_month(d); tractor_units(d)
-    print(f'{n} assets; CPM data built {d.get("built")}')
+    print(f'{n} assets ({ne} with estimated cost); CPM data built {d.get("built")}')

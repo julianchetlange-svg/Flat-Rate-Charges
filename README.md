@@ -30,6 +30,8 @@ Individual rate per unit:
 
 **2026 assumptions:** funding rate 7.00%; life/residual – forklift 96 mo/15%, TMFL 96/20%, light-duty 72/20%, truck 96/15%, tractor 120/15%, trailer 180/5%, specialty trailer 180/0%.
 
+**Missing costs:** assets with no Asset Original Value use a placeholder cost – the average of the 3 same-template units closest in origination date – flagged "Estimated cost" until the real cost is entered on Aftermarket & Costs.
+
 **Locations:** 353, 355, 355CD, 356, 359, 450, 489 and 950 are not on flat rate. Their assets are kept and priced for reference but left out of totals. All other locations, including offices (730, 735, 761–767, 900), are charged.
 
 **Planned 2027 change:** 10 new Tractor TAs (Jan 2027) replace the 10 oldest store tractors. Replaced units drop out of the averages; cost per new unit and the replaced unit numbers are editable on the Assumptions tab.
@@ -42,6 +44,7 @@ data/assets.json         asset list (Current_Assets_11_13_2026.xlsx)
 data/maint_rates.json    Fexa maintenance per mile / hour by template
 data/unitmonth.json      Fexa maintenance per unit-month by template
 data/tractor_units.json  per-unit tractor data for planned replacements
+data/cost_estimates.json placeholder cost for assets missing Asset Original Value (avg of 3 same-type units nearest in age)
 scripts/build_data.py    rebuild data/ from an asset list export + the CPM report's index.html
 scripts/build_html.py    inject data/ into src/template.html -> index.html
 ```
