@@ -46,6 +46,7 @@ data/assets.json         asset list (Current_Assets_11_13_2026.xlsx)
 data/maint_rates.json    Fexa maintenance per mile / hour by template
 data/unitmonth.json      Fexa maintenance per unit-month by template
 data/tractor_units.json  per-unit tractor data for planned replacements
+data/logo.b64           McCoy's logo (base64 PNG) for the header
 data/cost_estimates.json placeholder cost for assets missing Asset Original Value (avg of 3 same-type units nearest in age)
 scripts/build_data.py    rebuild data/ from an asset list export + the CPM report's index.html
 scripts/build_html.py    inject data/ into src/template.html -> index.html

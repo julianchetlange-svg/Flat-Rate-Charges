@@ -9,30 +9,35 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --bg:#f5f4f0;--panel:#ffffff;--ink:#1d2228;--muted:#5d6670;--line:#dcd9d1;--line2:#ebe8e1;
-  --accent:#1f5f8b;--accent-soft:#e3eef6;--warn:#a5531a;--warn-soft:#fbeee2;--bad:#a52a2a;--bad-soft:#f9e4e4;
+  --bg:#f4f5f2;--panel:#ffffff;--ink:#0b0b0b;--muted:#5f6460;--line:#d9dcd4;--line2:#e8eae4;
+  --green:#0d5540;--green-2:#13694f;--green-ink:#0a3f30;--yellow:#ffe901;--yellow-soft:#fff8b8;
+  --accent:#0d5540;--accent-soft:#e2efe9;--warn:#a5531a;--warn-soft:#fbeee2;--bad:#a52a2a;--bad-soft:#f9e4e4;
   --ok:#2e6b3a;--ok-soft:#e5f1e7;--ex:#7a7468;--ex-soft:#efede8;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif}
-header{padding:18px 24px 0;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
-h1{font-size:20px;margin:0;font-weight:600;letter-spacing:-.01em}
-.sub{color:var(--muted);font-size:13px;margin-top:2px}
+header{background:var(--green);color:#fff;border-bottom:5px solid var(--yellow);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:16px}
+.brand img{height:52px;border-radius:4px;display:block}
+h1{font-size:21px;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:#d6e6dd;font-size:13px;margin-top:2px}
+header .status{color:#d6e6dd}
 .hdr-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .status{font-size:12px;color:var(--muted)}
 button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer}
 button:hover{border-color:#b9b5aa}
-button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
-button.primary:hover{background:#184d72}
+button.primary{background:var(--yellow);border-color:var(--yellow);color:var(--green-ink);font-weight:600}
+button.primary:hover{background:#fff27a;border-color:#fff27a}
 button:disabled{opacity:.5;cursor:default}
-nav{display:flex;gap:2px;padding:14px 24px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
-nav a{padding:8px 14px;color:var(--muted);text-decoration:none;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px;font-weight:500}
-nav a.active{background:var(--panel);color:var(--ink);border-color:var(--line)}
+nav{display:flex;gap:2px;padding:0 24px;background:var(--green-ink);flex-wrap:wrap}
+nav a{padding:11px 14px;color:#cfe0d6;text-decoration:none;border-bottom:3px solid transparent;font-weight:600}
+nav a:hover{color:#fff}
+nav a.active{color:#fff;border-bottom-color:var(--yellow)}
 nav a .pill{margin-left:6px}
 main{padding:20px 24px 60px}
 .view{display:none}.view.active{display:block}
 .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
-.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-top:3px solid var(--green);border-radius:8px;padding:12px 14px}
 .kpi .l{font-size:12px;color:var(--muted)}
 .kpi .v{font-size:22px;font-weight:600;font-family:"IBM Plex Mono",monospace;margin-top:2px}
 .kpi .n{font-size:12px;color:var(--muted)}
@@ -48,7 +53,7 @@ main{padding:20px 24px 60px}
 .tablewrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{padding:6px 10px;border-bottom:1px solid var(--line2);text-align:left;white-space:nowrap}
-th{position:sticky;top:0;background:#faf9f6;font-weight:600;font-size:12px;color:var(--muted);z-index:1;cursor:pointer;user-select:none}
+th{position:sticky;top:0;background:#eef3ef;font-weight:600;font-size:12px;color:var(--muted);z-index:1;cursor:pointer;user-select:none}
 th.nosort{cursor:default}
 td.num,th.num{text-align:right;font-family:"IBM Plex Mono",monospace}
 th.num{font-family:inherit}
@@ -86,9 +91,12 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
 </head>
 <body>
 <header>
-  <div>
-    <h1>Fleet Flat Rate Calculator</h1>
-    <div class="sub" id="sub">Monthly flat rate per asset and per store · asset list as of 11/13/2026</div>
+  <div class="brand">
+    <img src="__LOGO__" alt="McCoy's Building Supply">
+    <div>
+      <h1>Fleet Flat Rate Calculator</h1>
+      <div class="sub" id="sub">Monthly flat rate per asset and per store · asset list as of 11/13/2026</div>
+    </div>
   </div>
   <div class="hdr-right">
     <span class="status" id="saveStatus">Settings: this browser only</span>
