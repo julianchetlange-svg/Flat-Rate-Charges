@@ -5,8 +5,8 @@ Interactive calculator for McCoy's annual flat monthly fleet rate. Stores pay a 
 Open `index.html` in a browser (or enable GitHub Pages: Settings → Pages → Deploy from branch `main`, `/root`). Settings you change are kept in that browser. **Download Excel** exports the store summary, rate by asset type, maintenance per mile/hour, asset detail, excluded locations, flags and assumptions.
 
 ## Phases
-1. **Rate build** (this version).
-2. **Monthly processing** for accounting (charges by store, export for the journal entry) – next.
+1. **Rate build** – done.
+2. **Monthly processing** – the **2026 Back-test** tab bills each unit Jan–Oct 2026 at the new rates (fixed charge + type $/mile or $/hour × that month's miles/hours; flat maintenance for trailers etc.; months with no reading use the unit's average month) and compares it by store and month with accounting's old flat-rate allocation and actual expense. The same logic will run each month on new miles/hours for the accounting charge report.
 
 ## How the rate is built
 Each asset type (template) gets one monthly rate: the simple average of the individual rates of its units at flat-rate locations. Combined types: *24' TA Flatbed & Slide*, *Truck Mounted Forklift & 4-Way*, *Tractor (TA & SA)*.
@@ -46,6 +46,8 @@ data/assets.json         asset list (Current_Assets_11_13_2026.xlsx)
 data/maint_rates.json    Fexa maintenance per mile / hour by template
 data/unitmonth.json      Fexa maintenance per unit-month by template
 data/tractor_units.json  per-unit tractor data for planned replacements
+data/usage_2026.json     Jan–Oct 2026 miles/hours and in-service months by unit (from the CPM report)
+data/acct_2026.json      accounting's old flat-rate allocation by store/month and actual expense (through Sep)
 data/logo.b64           McCoy's logo (base64 PNG) for the header
 data/cost_estimates.json placeholder cost for assets missing Asset Original Value (avg of 3 same-type units nearest in age)
 scripts/build_data.py    rebuild data/ from an asset list export + the CPM report's index.html
@@ -56,5 +58,6 @@ scripts/build_html.py    inject data/ into src/template.html -> index.html
 ```
 pip install pandas openpyxl
 python scripts/build_data.py Current_Assets.xlsx path/to/Fleet-CMP-HOUR-Analysis/index.html
+python scripts/build_usage.py path/to/Fleet-CMP-HOUR-Analysis/index.html Sep26_Finals_YTD_Total_Vehicle_Expenses_Ops.xlsx
 python scripts/build_html.py
 ```
