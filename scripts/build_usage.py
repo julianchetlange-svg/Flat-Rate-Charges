@@ -71,7 +71,13 @@ def acct(path):
             if mi is not None and x: v[mi] += float(x)
         alloc[sc(r[0])] = [round(x, 2) for x in v]
     names = {sc(r[0]): str(r[0]).split(' ', 1)[1] for r in rows[1:] if r[0] and str(r[0]).strip() != 'Total'}
-    (DATA / 'acct_2026.json').write_text(json.dumps({'through': 'Sep', 'alloc': alloc, 'actual': actual, 'names': names}, separators=(',', ':')))
+    out = {'through': 'Sep', 'alloc': alloc, 'actual': actual, 'names': names}
+    old = DATA / 'acct_2026.json'
+    if old.exists():   # keep monthly totals entered by hand (old flat-rate charges incl. HQ assets)
+        prev = json.loads(old.read_text())
+        for k in ('totalInclHQ', 'totalInclHQThrough'):
+            if k in prev: out[k] = prev[k]
+    (DATA / 'acct_2026.json').write_text(json.dumps(out, separators=(',', ':')))
     return len(alloc)
 
 
