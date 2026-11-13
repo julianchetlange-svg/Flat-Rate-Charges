@@ -28,7 +28,7 @@ Individual rate per unit:
 - Locked: pickups $0.14/mile, cars $0.09/mile (incomplete Fexa data).
 - Units with missing telematics/hour months are left out of the per-mile/hour rates.
 
-**2026 assumptions:** funding rate 7.00%; life/residual – forklift 96 mo/15%, TMFL 84/20%, light-duty 72/20%, truck 120/15%, tractor 84/15%, trailer 180/5%, specialty trailer 180/0%.
+**2026 assumptions:** funding rate 7.00%; life/residual – forklift 96 mo/15%, TMFL 84/20%, light-duty 72/20%, truck 96/15%, tractor 120/15%, trailer 180/5%, specialty trailer 180/0%.
 
 **Locations:** 353, 355, 355CD, 356, 359, 450, 489 and 950 are not on flat rate. Their assets are kept and priced for reference but left out of totals. All other locations, including offices (730, 735, 761–767, 900), are charged.
 

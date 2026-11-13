@@ -290,7 +290,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 12,
+  rev: 13,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -302,8 +302,8 @@ const DEFAULTS = {
   classes: {
     "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
     "TMFL":               {life:84,  resid:20, reg:0,   gps:false, lytx:false, maint:318, variable:false},
-    "Truck":              {life:120, resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
-    "Tractor":            {life:84,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
+    "Truck":              {life:96,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
+    "Tractor":            {life:120, resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Light-Duty Vehicle": {life:72,  resid:20, reg:0.2, gps:true,  lytx:true,  maint:100, variable:false},
     "Trailer":            {life:180, resid:5,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
     "Specialty Trailer":  {life:180, resid:0,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
@@ -541,7 +541,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<10){ S.amTemplate=Object.assign({}, DEFAULTS.amTemplate, o.amTemplate||{}); }
   if(!o.rev || o.rev<11){ S.amTemplate=Object.assign({}, S.amTemplate, {"24' TA Flatbed":7650,"24' TA Slide Flatbed":7650}); }
   if(!o.rev || o.rev<12){ S.amTemplate=Object.assign({}, S.amTemplate, {"Tractor TA":3825,"Tractor SA":3825}); }
-  S.rev=12;
+  if(!o.rev || o.rev<13){ S.classes.Truck.life=96; S.classes.Tractor.life=120; }
+  S.rev=13;
 }
 function changed(){
   persistLocal(); renderAll();
