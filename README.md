@@ -1,0 +1,54 @@
+# Fleet Flat Rate Charges
+
+Interactive calculator for McCoy's annual flat monthly fleet rate. Stores pay a flat monthly rate per asset instead of taking fleet costs directly on their P&L, so repair decisions aren't made to protect a store's P&L and fleet expense is smoothed over each asset's life. **Fuel is not in the rate**; it is billed separately at actual.
+
+Open `index.html` in a browser (or enable GitHub Pages: Settings → Pages → Deploy from branch `main`, `/root`). Settings you change are kept in that browser. **Download Excel** exports the store summary, rate by asset type, maintenance per mile/hour, asset detail, excluded locations, flags and assumptions.
+
+## Phases
+1. **Rate build** (this version).
+2. **Monthly processing** for accounting (charges by store, export for the journal entry) – next.
+
+## How the rate is built
+Each asset type (template) gets one monthly rate: the simple average of the individual rates of its units at flat-rate locations. Combined types: *24' TA Flatbed & Slide*, *Truck Mounted Forklift & 4-Way*, *Tractor (TA & SA)*.
+
+Individual rate per unit:
+| Component | Calculation |
+|---|---|
+| Delivered cost | equipment cost with tax + aftermarket (wrap / rolling tarp, TMFL kit / lift gate) |
+| Base rate | `PMT(funding rate/12, life months, −delivered cost, residual, 1)` – paid in advance down to residual |
+| Ad valorem | 0.8% × delivered cost ÷ 12 |
+| Registration | 0.6% ÷ 12 trucks/tractors; 0.2% ÷ 12 light-duty and trailers; none for forklifts/TMFL |
+| GPS / Lytx | $26 / $36 per month, road units only |
+| Maintenance | Fexa work-order history only (see below) |
+
+**Maintenance** (from the YTD Cost per Mile / Hour analysis, Jan–Oct 2026):
+- Trucks, tractors, light-duty: type's total Fexa spend ÷ total miles × average monthly miles per unit.
+- Forklifts and TMFLs: total Fexa spend ÷ total hours × average monthly hours per unit.
+- Trailers, carts, sweeper, reach truck, scissor lifts: Fexa spend per active unit-month.
+- Locked: pickups $0.14/mile, cars $0.09/mile (incomplete Fexa data).
+- Units with missing telematics/hour months are left out of the per-mile/hour rates.
+
+**2026 assumptions:** funding rate 7.00%; life/residual – forklift 96 mo/15%, TMFL 84/20%, light-duty 72/20%, truck 120/15%, tractor 84/15%, trailer 180/5%, specialty trailer 180/0%.
+
+**Locations:** 353, 355, 355CD, 356, 359, 450, 489 and 950 are not on flat rate. Their assets are kept and priced for reference but left out of totals. All other locations, including offices (730, 735, 761–767, 900), are charged.
+
+**Planned 2027 change:** 10 new Tractor TAs (Jan 2027) replace the 10 oldest store tractors. Replaced units drop out of the averages; cost per new unit and the replaced unit numbers are editable on the Assumptions tab.
+
+## Repo layout
+```
+index.html               built calculator (open this)
+src/template.html        calculator source; data tokens are injected at build
+data/assets.json         asset list (Current_Assets_11_13_2026.xlsx)
+data/maint_rates.json    Fexa maintenance per mile / hour by template
+data/unitmonth.json      Fexa maintenance per unit-month by template
+data/tractor_units.json  per-unit tractor data for planned replacements
+scripts/build_data.py    rebuild data/ from an asset list export + the CPM report's index.html
+scripts/build_html.py    inject data/ into src/template.html -> index.html
+```
+
+## Rebuilding
+```
+pip install pandas openpyxl
+python scripts/build_data.py Current_Assets.xlsx path/to/Fleet-CMP-HOUR-Analysis/index.html
+python scripts/build_html.py
+```

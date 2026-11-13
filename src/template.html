@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fleet Flat Rate Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{
+  --bg:#f5f4f0;--panel:#ffffff;--ink:#1d2228;--muted:#5d6670;--line:#dcd9d1;--line2:#ebe8e1;
+  --accent:#1f5f8b;--accent-soft:#e3eef6;--warn:#a5531a;--warn-soft:#fbeee2;--bad:#a52a2a;--bad-soft:#f9e4e4;
+  --ok:#2e6b3a;--ok-soft:#e5f1e7;--ex:#7a7468;--ex-soft:#efede8;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 "IBM Plex Sans",system-ui,sans-serif}
+header{padding:18px 24px 0;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+h1{font-size:20px;margin:0;font-weight:600;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.hdr-right{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.status{font-size:12px;color:var(--muted)}
+button{font:inherit;font-size:13px;border:1px solid var(--line);background:var(--panel);color:var(--ink);padding:6px 12px;border-radius:6px;cursor:pointer}
+button:hover{border-color:#b9b5aa}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.primary:hover{background:#184d72}
+button:disabled{opacity:.5;cursor:default}
+nav{display:flex;gap:2px;padding:14px 24px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+nav a{padding:8px 14px;color:var(--muted);text-decoration:none;border:1px solid transparent;border-bottom:none;border-radius:6px 6px 0 0;margin-bottom:-1px;font-weight:500}
+nav a.active{background:var(--panel);color:var(--ink);border-color:var(--line)}
+nav a .pill{margin-left:6px}
+main{padding:20px 24px 60px}
+.view{display:none}.view.active{display:block}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
+.kpi .l{font-size:12px;color:var(--muted)}
+.kpi .v{font-size:22px;font-weight:600;font-family:"IBM Plex Mono",monospace;margin-top:2px}
+.kpi .n{font-size:12px;color:var(--muted)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px}
+.panel h2{font-size:15px;margin:0 0 4px;font-weight:600}
+.panel p.help{margin:0 0 12px;color:var(--muted);font-size:13px}
+.banner{border-radius:8px;padding:10px 14px;margin-bottom:14px;font-size:13px}
+.banner.warn{background:var(--warn-soft);border:1px solid #efcfb1;color:#6e3810}
+.banner.bad{background:var(--bad-soft);border:1px solid #ecc0c0;color:#741d1d}
+.toolbar{display:flex;gap:10px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.toolbar input[type=search],.toolbar select{font:inherit;font-size:13px;padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.toolbar label{font-size:13px;color:var(--muted);display:flex;gap:6px;align-items:center}
+.tablewrap{overflow:auto;max-height:68vh;border:1px solid var(--line);border-radius:8px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:6px 10px;border-bottom:1px solid var(--line2);text-align:left;white-space:nowrap}
+th{position:sticky;top:0;background:#faf9f6;font-weight:600;font-size:12px;color:var(--muted);z-index:1;cursor:pointer;user-select:none}
+th.nosort{cursor:default}
+td.num,th.num{text-align:right;font-family:"IBM Plex Mono",monospace}
+th.num{font-family:inherit}
+tr.total td{font-weight:600;background:#faf9f6;border-top:2px solid var(--line)}
+tr.excl td{color:var(--ex)}
+tr.flagged td:first-child{box-shadow:inset 3px 0 0 var(--bad)}
+tbody tr:hover td{background:#fbfaf7}
+.pill{display:inline-block;font-size:11px;padding:1px 7px;border-radius:10px;font-weight:500;font-family:"IBM Plex Sans",sans-serif}
+.pill.bad{background:var(--bad-soft);color:var(--bad)}
+.pill.warn{background:var(--warn-soft);color:var(--warn)}
+.pill.ok{background:var(--ok-soft);color:var(--ok)}
+.pill.ex{background:var(--ex-soft);color:var(--ex)}
+.pill.info{background:var(--accent-soft);color:var(--accent)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px}
+.form{display:grid;grid-template-columns:1fr 130px;gap:8px 12px;align-items:center}
+.form label{font-size:13px}
+.form label small{display:block;color:var(--muted);font-size:12px}
+input.in,select.in{font:inherit;font-size:13px;padding:5px 8px;border:1px solid var(--line);border-radius:6px;width:100%;background:#fff;font-family:"IBM Plex Mono",monospace}
+input.in:focus,select.in:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+input.in.need{border-color:var(--warn);background:var(--warn-soft)}
+td input.in{width:110px;padding:3px 6px}
+td select.in{width:auto;padding:3px 6px;font-family:inherit}
+td input[type=checkbox]{transform:translateY(1px)}
+textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;padding:8px;border:1px solid var(--line);border-radius:6px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.chip{background:var(--ex-soft);border:1px solid var(--line);border-radius:14px;padding:3px 6px 3px 10px;font-size:13px;display:flex;align-items:center;gap:4px}
+.chip button{border:none;background:none;padding:0 4px;color:var(--muted);font-size:14px;line-height:1}
+.muted{color:var(--muted)}
+.small{font-size:12px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.toast{position:fixed;bottom:18px;right:18px;background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;max-width:420px}
+.toast.show{opacity:1}
+.formula{font-family:"IBM Plex Mono",monospace;font-size:12px;background:#faf9f6;border:1px solid var(--line2);border-radius:6px;padding:10px;line-height:1.7;white-space:pre-wrap}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Fleet Flat Rate Calculator</h1>
+    <div class="sub" id="sub">Monthly flat rate per asset and per store · asset list as of 11/13/2026</div>
+  </div>
+  <div class="hdr-right">
+    <span class="status" id="saveStatus">Settings: this browser only</span>
+    <button id="btnExport" class="primary">Download Excel (.xlsx)</button>
+  </div>
+</header>
+<nav id="nav">
+  <a href="#summary" data-v="summary">Store Summary</a>
+  <a href="#types" data-v="types">Rate by Asset Type</a>
+  <a href="#maint" data-v="maint">Maintenance per Mile / Hour</a>
+  <a href="#assets" data-v="assets">Asset Detail</a>
+  <a href="#assumptions" data-v="assumptions">Assumptions</a>
+  <a href="#classes" data-v="classes">Class Map</a>
+  <a href="#adjust" data-v="adjust">Aftermarket &amp; Costs</a>
+  <a href="#flags" data-v="flags">Flags <span class="pill bad" id="flagCount">0</span></a>
+</nav>
+<main>
+  <div id="globalBanner"></div>
+
+  <!-- SUMMARY -->
+  <section class="view" id="v-summary">
+    <div class="kpis" id="kpis"></div>
+    <div class="toolbar">
+      <input type="search" id="sumSearch" placeholder="Search store…">
+      <label><input type="checkbox" id="sumShowEx"> Show excluded locations (indicative only)</label>
+    </div>
+    <div class="tablewrap"><table id="sumTable"></table></div>
+  </section>
+
+  <!-- TYPES -->
+  <section class="view" id="v-types">
+    <div class="panel" style="margin-bottom:12px">
+      <h2>Monthly rate by asset type</h2>
+      <p class="help" style="margin:0">Each asset type's rate is the simple average of the individual rates of its units at charge locations; every unit of that type is charged the same rate. Units without a cost are charged the average but left out of it. Maintenance for types with miles or hours in the YTD Cost per Mile / Hour analysis is the type's average maintenance $/mile or $/hour × its average monthly miles or hours per unit; types without miles or hours (trailers, carts, sweeper, reach truck) use their Fexa maintenance average per unit per month. A type with no units at charge locations is averaged over all locations, for reference only.</p>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="tSearch" placeholder="Search asset type…">
+      <select id="tClass"><option value="">All classes</option></select>
+      <label><input type="checkbox" id="tShowEx"> Include types only at excluded locations</label>
+    </div>
+    <div class="tablewrap"><table id="tTable"></table></div>
+  </section>
+
+  <!-- MAINT -->
+  <section class="view" id="v-maint">
+    <div class="panel" style="margin-bottom:12px">
+      <h2>Maintenance cost per mile / hour by asset type</h2>
+      <p class="help" style="margin:0">These rates replace fixed monthly maintenance for every asset type with miles or hours. Maintenance in the rate = type maintenance rate × the type's average monthly miles or hours per unit. Type rate = simple average of each unit's $/mile or $/hour (or, if set on Assumptions, weighted: total spend ÷ total usage). Source: YTD Cost per Mile / Hour analysis (Jan–Oct 2026, built 11/8): YTD maintenance spend ÷ YTD miles for trucks, tractors and light-duty vehicles, or ÷ YTD hours for forklifts and TMFLs. Only units that logged miles or hours in every month they were active count; units with missing telematics or hour months are left out of the rate because their spend would be divided by too few miles. The rate uses charge locations; a type with no charge units uses all locations. Only Fexa work-order maintenance spend is used; fuel, depreciation, registration and taxes are excluded. Pickups are locked at $0.14/mile and cars at $0.09/mile because their Fexa maintenance data is incomplete (set on Assumptions). Forklift and TMFL hours for Jan–Aug are estimates (DVIR actuals start 8/24). Trailers, carts, the sweeper and other units with no miles or hours use their Fexa average per unit per month (shown on Rate by Asset Type).</p>
+    </div>
+    <div class="toolbar">
+      <select id="mMeas"><option value="">Miles and hours</option><option value="mile">Per mile</option><option value="hour">Per hour</option></select>
+      <label><input type="checkbox" id="mShowAll"> Include types with no charge units</label>
+    </div>
+    <div class="tablewrap"><table id="mTable"></table></div>
+  </section>
+
+  <!-- ASSETS -->
+  <section class="view" id="v-assets">
+    <div class="toolbar">
+      <input type="search" id="aSearch" placeholder="Search asset, store, template…" style="min-width:260px">
+      <select id="aStore"><option value="">All stores</option></select>
+      <select id="aClass"><option value="">All classes</option></select>
+      <select id="aScope">
+        <option value="charge">Charge locations</option>
+        <option value="excluded">Excluded locations</option>
+        <option value="all">All locations</option>
+      </select>
+      <label><input type="checkbox" id="aFlagOnly"> Flagged only</label>
+      <span class="muted small" id="aCount"></span>
+    </div>
+    <div class="tablewrap"><table id="aTable"></table></div>
+  </section>
+
+  <!-- ASSUMPTIONS -->
+  <section class="view" id="v-assumptions">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Rate year and funding</h2>
+        <p class="help">Confirm these each year before building rates. Defaults are the 2026 values from the project instructions.</p>
+        <div class="form" id="formGlobal"></div>
+      </div>
+      <div class="panel">
+        <h2>Excluded locations</h2>
+        <p class="help">These stores are not on flat rate. Their assets stay in the data and are priced for reference, but they're left out of all totals and the charge export.</p>
+        <div class="chips" id="exChips"></div>
+        <div class="row"><input class="in" id="exAdd" placeholder="Store #" style="width:110px"><button id="exAddBtn">Add</button></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Planned changes for 2027</h2>
+      <p class="help">New units replacing existing ones. Replaced units stop being charged and drop out of the type averages (base rate and Fexa maintenance). New units are priced from the cost below, and their maintenance uses the new-unit $/mile at the type's average miles. Default new-unit rate is what store Tractor TAs under 4 years old cost ($0.615/mile).</p>
+      <div id="plannedBox"></div>
+    </div>
+    <div class="panel">
+      <h2>Rate by class</h2>
+      <p class="help">Life, residual, registration, telematics and fixed maintenance for each rate class. Templates are assigned to classes on the Class Map tab. Maintenance comes from Fexa history: per mile or per hour where units log usage, otherwise per unit per month. The fixed amounts below are a fallback only for types with no Fexa history.</p>
+      <div class="tablewrap" style="max-height:none"><table id="classTable"></table></div>
+    </div>
+    <div class="panel">
+      <h2>How the rate is calculated</h2>
+      <div class="formula">Delivered cost   = equipment cost with tax (Asset Original Value, or override) + aftermarket
+Residual value   = delivered cost × residual %
+Base rate        = PMT(funding rate ÷ 12, life months, −delivered cost, residual value, 1)   ← payment in advance, paid down to residual
+Ad valorem       = ad valorem % × delivered cost ÷ 12
+Registration     = class registration % × delivered cost ÷ 12
+GPS / Lytx       = flat monthly fee where the class is a road unit
+Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (from the YTD CPM analysis)
+                   types with no miles/hours (trailers, carts, sweeper, reach truck): Fexa maintenance ÷ active unit-months
+                   fixed class amount only where a type has no Fexa history
+Individual rate  = base + ad valorem + registration + GPS + Lytx + fixed maint.
+Asset-type rate  = simple average of the individual rates of that type's priced units at charge locations
+Monthly charge   = asset-type rate · Annual = monthly × 12</div>
+    </div>
+  </section>
+
+  <!-- CLASS MAP -->
+  <section class="view" id="v-classes">
+    <div class="panel">
+      <h2>Template → rate class</h2>
+      <p class="help">Each asset template in the list is assigned a rate class. Assets on an "Unassigned" template are flagged and priced at fees only until you pick a class.</p>
+      <div class="tablewrap" style="max-height:none"><table id="mapTable"></table></div>
+    </div>
+  </section>
+
+  <!-- MILES -->
+  <section class="view" id="v-miles">
+    <div class="panel">
+      <h2>Miles by location</h2>
+      <p class="help">Variable truck R&amp;M = rate per mile × each store's monthly miles. Paste two columns (Store, Miles) from your CPM report, or upload a .xlsx/.csv with those columns. Only charge stores with trucks or tractors need miles.</p>
+      <div class="row" style="margin-bottom:10px">
+        <label class="small">Miles entered are
+          <select class="in" id="milesBasis" style="width:auto">
+            <option value="monthly">Average monthly miles</option>
+            <option value="ytd">YTD total miles</option>
+            <option value="annual">Annual miles</option>
+          </select>
+        </label>
+        <label class="small" id="milesMonthsWrap">YTD months <input class="in" id="milesMonths" type="number" min="1" max="12" style="width:70px"></label>
+        <input type="file" id="milesFile" accept=".xlsx,.xls,.csv">
+      </div>
+      <textarea class="in" id="milesPaste" placeholder="Paste here, e.g.&#10;1	4250&#10;3	3810"></textarea>
+      <div class="row" style="margin:8px 0 14px"><button id="milesApply">Apply pasted miles</button><button id="milesClear">Clear all miles</button><span class="muted small" id="milesMsg"></span></div>
+      <div class="tablewrap"><table id="milesTable"></table></div>
+    </div>
+  </section>
+
+  <!-- ADJUST -->
+  <section class="view" id="v-adjust">
+    <div class="grid2">
+      <div class="panel">
+        <h2>Aftermarket by template (default)</h2>
+        <p class="help">Applies to every asset on the template unless the asset has its own amount below. Use for standard adds like a TMFL kit, lift gate, wrap or rolling tarp.</p>
+        <div class="tablewrap" style="max-height:340px"><table id="amTplTable"></table></div>
+      </div>
+      <div class="panel">
+        <h2>Aftermarket and cost by asset</h2>
+        <p class="help">Paste or upload columns: Asset, Aftermarket, and optionally Cost (equipment cost with tax). Cost overrides the asset list value; use it to fill the assets with no cost. Leave a cell blank to skip it.</p>
+        <div class="row" style="margin-bottom:8px"><input type="file" id="adjFile" accept=".xlsx,.xls,.csv"></div>
+        <textarea class="in" id="adjPaste" placeholder="Asset	Aftermarket	Cost&#10;626002	8500&#10;380038		42000"></textarea>
+        <div class="row" style="margin-top:8px"><button id="adjApply">Apply pasted values</button><span class="muted small" id="adjMsg"></span></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Asset adjustments in use</h2>
+      <p class="help">Edit directly. Assets with no cost are listed here so you can fill them.</p>
+      <div class="toolbar"><input type="search" id="adjSearch" placeholder="Search asset or store…"></div>
+      <div class="tablewrap"><table id="adjTable"></table></div>
+    </div>
+  </section>
+
+  <!-- FLAGS -->
+  <section class="view" id="v-flags">
+    <div class="panel">
+      <h2>Flags</h2>
+      <p class="help">Assets and stores that need attention. Flagged assets stay in the totals at whatever can be priced (fees and maintenance) so nothing drops out silently.</p>
+      <div class="toolbar">
+        <select id="fType"><option value="">All flag types</option></select>
+        <select id="fScope"><option value="charge">Charge locations</option><option value="all">All locations</option></select>
+      </div>
+      <div class="tablewrap"><table id="fTable"></table></div>
+    </div>
+  </section>
+</main>
+<div class="toast" id="toast"></div>
+
+<script>
+const RAW = __ASSETS__;
+const MAINT = __MAINT__;
+const UNITMO = __UNITMO__;
+const TUNITS = __TUNITS__.map(u=>({id:u[0],s:u[1],m:u[2],use:u[3],am:u[4],ok:!!u[5],o:u[6],t:u[7]}));
+const ASOF = "2026-11-13";
+
+/* ---------- defaults ---------- */
+const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","Trailer","Specialty Trailer","Cart / Sweeper","Unassigned"];
+const DEFAULTS = {
+  year: 2026,
+  fundingRate: 7,
+  adValPct: 0.8,
+  gps: 26, lytx: 36,
+  varRate: 0.0425,
+  includeLoaners: true,
+  rev: 7,
+  planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
+            cost:163472, newRate:0.615, when:"Jan 2027"},
+  maintAvg: "weighted",
+  typeGroups: {"24' TA Flatbed":"24' TA Flatbed & Slide","24' TA Slide Flatbed":"24' TA Flatbed & Slide",
+               "Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way","4-Way Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way",
+               "Tractor TA":"Tractor (TA & SA)","Tractor SA":"Tractor (TA & SA)"},
+  lockedMaint: {"Pickup": 0.14, "Car": 0.09},   // asset type -> locked $/mile or $/hour (no full maintenance data)   // simple = average of unit $/mi-hr rates; weighted = total spend ÷ total usage
+  excluded: ["353","355","355CD","356","359","489","450","950"],
+  classes: {
+    "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
+    "TMFL":               {life:84,  resid:20, reg:0,   gps:false, lytx:false, maint:318, variable:false},
+    "Truck":              {life:120, resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
+    "Tractor":            {life:84,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
+    "Light-Duty Vehicle": {life:72,  resid:20, reg:0.2, gps:true,  lytx:true,  maint:100, variable:false},
+    "Trailer":            {life:180, resid:5,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
+    "Specialty Trailer":  {life:180, resid:0,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
+    "Cart / Sweeper":     {life:72,  resid:20, reg:0,   gps:false, lytx:false, maint:100, variable:false},
+    "Unassigned":         {life:0,   resid:0,  reg:0,   gps:false, lytx:false, maint:0,   variable:false}
+  },
+  templateMap: {
+    "6K Yard Forklift":"Forklift","8K Yard Forklift":"Forklift","13K Yard Forklift":"Forklift","10K Yard Forklift":"Forklift",
+    "15.5K Yard Forklift":"Forklift","3K Yard Forklift":"Forklift","4K Yard Forklift":"Forklift","17.5K Yard Forklift":"Forklift",
+    "8K Boxcar Forklift":"Forklift","Reach Truck":"Forklift","Order Picker":"Forklift",
+    "Truck Mounted Forklift":"TMFL","4-Way Truck Mounted Forklift":"TMFL",
+    "24' TA Flatbed":"Truck","20' Slide Flatbed":"Truck","12' Slide Flatbed":"Truck","24' TA Slide Flatbed":"Truck",
+    "24' Van Body":"Truck","16' Van Body":"Truck","16' Conveyor":"Truck","24' Conveyor":"Truck",
+    "Tractor TA":"Tractor","Tractor SA":"Tractor",
+    "Pickup":"Light-Duty Vehicle","Car":"Light-Duty Vehicle","Cargo Van":"Light-Duty Vehicle",
+    "Flatbed Trailer":"Trailer",
+    "Open Air Trailer":"Specialty Trailer","Pup Trailer":"Specialty Trailer","Millwork Trailer":"Specialty Trailer","Van Trailer":"Specialty Trailer",
+    "Golf Cart":"Cart / Sweeper","Sweeper":"Cart / Sweeper",
+    "Scissor Lift":"Forklift","Light Tower":"Unassigned"
+  },
+  milesBasis: "monthly", milesMonths: 10,
+  miles: {},           // store -> number (as entered)
+  amTemplate: {},      // template -> amount
+  amAsset: {},         // asset -> amount
+  costOverride: {}     // asset -> amount
+};
+let S = structuredClone(DEFAULTS);
+
+/* ---------- assets ---------- */
+const ASSETS = RAW.map(r=>({store:r[0],storeName:r[1]||"",district:r[2]||"",asset:r[3],template:r[4]||"",mfr:r[5]||"",serial:r[6]||"",
+  own:r[7]||"",status:r[8]||"",orig:r[9]||"",cost:(r[10]==null?null:Number(r[10]))}));
+const STORE_NAMES = {}; ASSETS.forEach(a=>{ if(!STORE_NAMES[a.store]) STORE_NAMES[a.store]=a.storeName; });
+const TEMPLATES = [...new Set(ASSETS.map(a=>a.template))].sort();
+const storeSort = (a,b)=>{const na=parseFloat(a),nb=parseFloat(b);return (na-nb)||String(a).localeCompare(String(b));};
+const STORES = Object.keys(STORE_NAMES).sort(storeSort);
+
+/* ---------- helpers ---------- */
+const $ = id=>document.getElementById(id);
+const fmt = (n,d=2)=> n==null||isNaN(n) ? "—" : n.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+const money = (n,d=2)=> n==null||isNaN(n) ? "—" : (n<0?"-$":"$")+fmt(Math.abs(n),d);
+const esc = s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const num = v=>{ if(v==null) return null; const s=String(v).replace(/[$,\s]/g,""); if(s===""||s==="-") return null; const n=Number(s.replace(/^\((.*)\)$/,"-$1")); return isNaN(n)?null:n; };
+function toast(msg){const t=$("toast");t.textContent=msg;t.classList.add("show");clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
+function pmtAdvance(rateAnnual, n, pv, fv){
+  const r = rateAnnual/12;
+  if(!n) return null;
+  if(r===0) return (pv-fv)/n;
+  const g = Math.pow(1+r,n);
+  return (pv*g - fv) * r / ((1+r)*(g-1));
+}
+function monthsBetween(d){ if(!d) return null; const a=new Date(d), b=new Date(ASOF); if(isNaN(a)) return null; return (b.getFullYear()-a.getFullYear())*12+(b.getMonth()-a.getMonth()); }
+const isExcluded = s=> S.excluded.includes(String(s));
+function monthlyMiles(store){
+  const v = S.miles[store]; if(v==null) return null;
+  if(S.milesBasis==="ytd") return v/(S.milesMonths||1);
+  if(S.milesBasis==="annual") return v/12;
+  return v;
+}
+
+/* ---------- calc ---------- */
+let CALC = null;
+const USAGE_CLASSES = new Set(["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle"]);
+const MAINT_BY_T = {}; MAINT.forEach(m=>MAINT_BY_T[m.t]=m);
+const rt = t => (S.typeGroups||{})[t] || t;              // template -> rate type
+const members = r => TEMPLATES.filter(t=>rt(t)===r);
+function combBlocks(bs, hasUse){
+  bs = bs.filter(b=>b && b.units); if(!bs.length) return null;
+  if(bs.length===1) return bs[0];
+  const sum=k=>bs.reduce((x,b)=>x+(b[k]||0),0), units=sum("units");
+  const o={units, gap:sum("gap"), maint:sum("maint"), am:sum("am"), mean: bs.reduce((x,b)=>x+(b.mean||0)*b.units,0)/units, med:null};
+  if(hasUse){ o.use=sum("use"); o.rate=o.use?o.maint/o.use:null; o.mo=o.am?o.use/o.am:null; } else { o.rate=o.am?o.maint/o.am:null; }
+  return o;
+}
+function plannedOn(){ return S.planned && S.planned.on && (S.planned.replace||[]).length; }
+function maintFor(r){ const m = maintFor0(r); return (m && plannedOn() && members(r).includes(S.planned.template)) ? plannedMaint(m, members(r)) : m; }
+function plannedMaint(m, mem){
+  // Tractor TA: drop replaced units' Fexa history, add new units at the new-unit $/mile and the type's average miles
+  const P=S.planned, rep=new Set(P.replace.map(String)), ex=new Set(S.excluded);
+  const base = TUNITS.filter(u=>u.ok && !ex.has(u.s) && !rep.has(u.id) && mem.includes(u.t));
+  const mo0 = m.ch && m.ch.mo ? m.ch.mo : (base.reduce((x,u)=>x+u.use,0)/Math.max(1,base.reduce((x,u)=>x+u.am,0)));
+  const add = P.replace.length, nm = (P.newRate||0)*mo0*10, nu = mo0*10;
+  const units = base.length+add, maint = base.reduce((x,u)=>x+u.m,0)+add*nm, use = base.reduce((x,u)=>x+u.use,0)+add*nu, am = base.reduce((x,u)=>x+u.am,0)+add*10;
+  const mean = (base.reduce((x,u)=>x+u.m/u.use,0) + add*(P.newRate||0))/units;
+  const ch = {units, gap:m.ch?m.ch.gap:0, maint, use, am, rate: maint/use, mean, med:null, mo: use/am, planned:true, replaced:base.length, added:add};
+  return Object.assign({}, m, {ch});
+}
+function maintFor0(r){ // combined MAINT record for a rate type
+  const ms = members(r).map(t=>MAINT_BY_T[t]).filter(Boolean); if(!ms.length) return null;
+  if(ms.length===1) return ms[0];
+  const blank={units:0};
+  return {t:r, c:ms[0].c, meas:ms[0].meas, n:ms.reduce((x,m)=>x+m.n,0), std:0, he:ms.reduce((x,m)=>x+(m.he||0),0),
+    ch: combBlocks(ms.map(m=>m.ch),true)||blank, all: combBlocks(ms.map(m=>m.all),true)||blank};
+}
+function unitmoFor(r){
+  const us = members(r).map(t=>UNITMO[t]).filter(Boolean); if(!us.length) return null;
+  if(us.length===1) return us[0];
+  return {ch: combBlocks(us.map(u=>u.ch),false), all: combBlocks(us.map(u=>u.all),false)};
+}
+const clsOf = r => S.templateMap[members(r)[0]||r]||"Unassigned";
+function unitMonthMaint(t){
+  const cls = clsOf(t); if(cls==="Unassigned") return null;
+  const u = unitmoFor(t); if(!u) return null;
+  const useCh = !!(u.ch && u.ch.units), b = useCh?u.ch:u.all; if(!b) return null;
+  const rate = S.maintAvg==="weighted" ? b.rate : b.mean;
+  return {rate, mo:1, meas:"unit-month", basis:useCh?"charge":"all", n:b.units, amount: Math.round(rate*100)/100, locked:false};
+}
+function usageMaint(t){ return usageMaintMiHr(t) || unitMonthMaint(t); }
+function usageMaintMiHr(t){
+  const cls = clsOf(t); if(!USAGE_CLASSES.has(cls)) return null;
+  const m = maintFor(t); if(!m) return null;
+  const useCh = m.ch.units>0, b = useCh?m.ch:m.all;
+  const locked = (S.lockedMaint||{})[t];
+  const rate = locked!=null ? locked : (S.maintAvg==="weighted" ? b.rate : b.mean);
+  const mo = b.mo!=null ? b.mo : (locked!=null ? m.moAny : null);   // locked types: miles from any months with readings
+  if(rate==null || mo==null) return null;
+  return {rate, mo, meas:m.meas, basis:useCh?"charge":"all", n:b.units, amount: Math.round(rate*mo*100)/100, std:m.std, locked:locked!=null};
+}
+const COMP = ["base","adval","reg","gps","lytx","maint"];
+function compute(){
+  const fr = S.fundingRate==null ? null : S.fundingRate/100;
+  const varUnits = {};
+  const RTYPES = [...new Set(TEMPLATES.map(rt))].sort();
+  const UM = {}; RTYPES.forEach(t=>UM[t]=usageMaint(t));
+  const P = S.planned||{}, REPL = new Set(plannedOn()?P.replace.map(String):[]);
+  const NEWA = plannedOn() ? P.replace.map((id,i)=>{ const o=ASSETS.find(a=>a.asset===String(id)); if(!o) return null;
+      return {store:o.store, storeName:o.storeName, district:o.district, asset:`NEW-${i+1}`, template:P.template, mfr:"", serial:"", own:"Company Owned",
+              status:`Planned ${P.when||""} (replaces ${id})`, orig:"2027-01-01", cost:P.cost??null, planned:true}; }).filter(Boolean) : [];
+  const rows = ASSETS.concat(NEWA).map(a=>{
+    const cls = S.templateMap[a.template] || "Unassigned";
+    const C = S.classes[cls] || S.classes["Unassigned"];
+    const flags = [];
+    const loaner = a.status==="Loaner";
+    const replaced = REPL.has(a.asset);
+    const counted = !(loaner && !S.includeLoaners) && !replaced;
+    const ov = S.costOverride[a.asset];
+    const cost = ov!=null ? ov : a.cost;
+    let am = S.amAsset[a.asset]!=null ? S.amAsset[a.asset] : (S.amTemplate[a.template]||0);
+    if(cost==null) flags.push(["No cost","warn","Asset Original Value is blank (#N/A). Charged the asset-type average; not used in the average. Enter a cost on Aftermarket & Costs."]);
+    if(cost!=null && am && Math.sign(am)!==Math.sign(cost)){
+      flags.push(["Aftermarket sign","warn",`Aftermarket ${money(am)} had the opposite sign of cost; flipped so it adds.`]);
+      am = -am;
+    }
+    if(cls==="Unassigned") flags.push(["Unassigned class","bad",`Template "${a.template}" has no rate class. Set it on Class Map.`]);
+    if(replaced) flags.push(["Replaced","info",`Replaced by a new ${a.template} in ${P.when||"2027"}; not charged and left out of the averages.`]);
+    if(a.planned) flags.push(["Planned","info","New unit for 2027; cost and maintenance from Planned changes on Assumptions."]);
+    if(loaner) flags.push(["Loaner","info", S.includeLoaners?"Loaner unit, charged to the store holding it.":"Loaner unit, not charged (loaners off)."]);
+    if(fr==null) flags.push(["No funding rate","bad","Enter the funding rate on Assumptions."]);
+    const delivered = cost==null ? null : cost + am;
+    const resid = delivered==null ? null : delivered * C.resid/100;
+    const base = (delivered==null || fr==null || !C.life) ? null : pmtAdvance(fr, C.life, delivered, resid);
+    const adval = delivered==null ? null : delivered * S.adValPct/100/12;
+    const reg = delivered==null ? null : delivered * C.reg/100/12;
+    const gps = C.gps ? S.gps : 0, lytx = C.lytx ? S.lytx : 0;
+    const rtype = rt(a.template);
+    const maint = UM[rtype] ? UM[rtype].amount : C.maint;
+    const age = monthsBetween(a.orig);
+    if(age!=null && C.life && age>C.life) flags.push(["Past life","info",`In service ${age} months vs ${C.life}-month life; full rate still applies.`]);
+    return {...a, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
+            excluded:isExcluded(a.store), isVar:false};
+  });
+  // store variable
+  const storeVar = {};
+  STORES.forEach(s=>{
+    const mm = monthlyMiles(s);
+    storeVar[s] = { units: varUnits[s]||0, miles: mm, amount: mm!=null ? mm*S.varRate : 0 };
+  });
+  // individual (asset-specific) fixed rate, kept for reference
+  rows.forEach(r=>{ r.ind = {base:r.base,adval:r.adval,reg:r.reg,gps:r.gps,lytx:r.lytx,maint:r.maint};
+    r.indMonthly = (r.base==null) ? null : COMP.reduce((t,k)=>t+(r[k]||0),0); });
+  // rate by asset type (template) = simple average of individual rates of priced units at charge locations
+  const TYPE = {};
+  RTYPES.forEach(t=>{
+    const all = rows.filter(r=>r.rtype===t);
+    const priced = all.filter(r=>r.indMonthly!=null && r.cls!=="Unassigned");
+    let pop = priced.filter(r=>!r.excluded && !r.replaced), basis="charge";
+    if(!pop.length){ pop = priced; basis = pop.length?"all":"none"; }
+    const avg = k=> pop.length ? Math.round(pop.reduce((x,r)=>x+(r[k]||0),0)/pop.length*100)/100 : null;
+    const o = {template:t, cls:clsOf(t), templates:members(t), basis, n:pop.length,
+      units: all.filter(r=>!r.excluded && r.counted).length, unitsEx: all.filter(r=>r.excluded).length,
+      unpriced: all.filter(r=>r.indMonthly==null).length,
+      delivered: avg("delivered"), min: pop.length?Math.min(...pop.map(r=>r.indMonthly)):null, max: pop.length?Math.max(...pop.map(r=>r.indMonthly)):null};
+    COMP.forEach(k=>{ o[k] = pop.length ? avg(k) : (k==="gps"||k==="lytx"||k==="maint" ? (all[0]?all[0][k]:0) : null); });
+    o.rate = COMP.reduce((x,k)=>x+(o[k]||0),0);
+    o.isVar = false; o.um = UM[t];
+    TYPE[t]=o;
+  });
+  rows.forEach(r=>{
+    const T = TYPE[r.rtype];
+    COMP.forEach(k=>r[k]=T[k]);
+    if(r.indMonthly==null && T.n) r.flags.push(["Type rate applied","info",`No individual rate; charged the ${r.rtype} average.`]);
+    if(r.isVar && r.counted){
+      const sv = storeVar[r.store];
+      if(sv.miles!=null) r.variable = sv.amount / sv.units;
+    }
+    r.typeRate = T.rate;
+    r.monthly = T.rate + (r.variable||0);
+    r.flagged = r.flags.some(f=>(f[1]==="bad"||f[1]==="warn") && f[0]!=="No funding rate");
+  });
+  // store summary
+  const stores = STORES.map(s=>{
+    const rs = rows.filter(r=>r.store===s && r.counted);
+    const sum = k=>rs.reduce((t,r)=>t+(r[k]||0),0);
+    const sv = storeVar[s];
+    // miles on a store with no variable units: not charged
+    const variable = sv.units ? (sv.miles!=null? sv.amount:0) : 0;
+    const o = {store:s, name:STORE_NAMES[s], excluded:isExcluded(s), units:rs.length, varUnits:sv.units, miles:sv.miles,
+      base:sum("base"), adval:sum("adval"), reg:sum("reg"), gps:sum("gps"), lytx:sum("lytx"), maint:sum("maint"), variable,
+      flagged: rs.filter(r=>r.flagged).length};
+    o.monthly = o.base+o.adval+o.reg+o.gps+o.lytx+o.maint+o.variable;
+    o.annual = o.monthly*12;
+    return o;
+  });
+  // store-level flags
+  const storeFlags = [];
+  Object.values(TYPE).forEach(t=>{ if(t.units && t.cls!=="Unassigned" && !t.um) storeFlags.push({store:"—",type:"No usage data",sev:"info",msg:`${t.template}: no Fexa history in the CPM analysis; fixed ${t.cls} maintenance used.`,tpl:t.template}); });
+  CALC = {rows, stores, storeFlags, TYPE};
+}
+
+/* ---------- persistence ---------- */
+let DB=null, DOC=null, saveTimer=null, loadedRemote=false;
+function persistLocal(){ try{ localStorage.setItem("fleetFlatRate.v1", JSON.stringify(S)); }catch(e){} }
+function loadLocal(){ try{ const t=localStorage.getItem("fleetFlatRate.v1"); if(t) merge(JSON.parse(t)); }catch(e){} }
+function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClone(DEFAULTS);
+  S = Object.assign(base, o);
+  if(S.fundingRate==null) S.fundingRate = DEFAULTS.fundingRate;
+  S.classes = Object.assign(structuredClone(DEFAULTS.classes), o.classes||{});
+  S.templateMap = Object.assign(structuredClone(DEFAULTS.templateMap), o.templateMap||{});
+  if(!o.lockedMaint) S.lockedMaint = structuredClone(DEFAULTS.lockedMaint);
+  if(!o.rev || o.rev<2){ S.maintAvg="weighted"; }
+  if(!o.rev || o.rev<5){ S.typeGroups=structuredClone(DEFAULTS.typeGroups); }
+  if(!o.rev || o.rev<4){ S.planned=structuredClone(DEFAULTS.planned); }
+  if(!o.rev || o.rev<6){ S.lockedMaint=Object.assign({}, S.lockedMaint, {Car:0.09}); }
+  if(!o.rev || o.rev<7){ S.templateMap["Scissor Lift"]="Forklift"; }
+  S.rev=7;
+}
+function changed(){
+  persistLocal(); renderAll();
+  if(DOC){ $("saveStatus").textContent="Saving…"; clearTimeout(saveTimer); saveTimer=setTimeout(async()=>{
+    try{ await DOC.set({json:JSON.stringify(S), savedAt:new Date().toISOString()}); $("saveStatus").textContent="Saved to artifact · "+new Date().toLocaleTimeString(); }
+    catch(e){ $("saveStatus").textContent="Saved in this browser (shared save failed)"; }
+  },700); }
+}
+async function initDb(){
+  if(!window.claude||!window.claude.use) return;
+  try{
+    const db = await window.claude.use("db"); if(!db) return;
+    DB=db; DOC=db.doc("settings/main");
+    const t=setTimeout(()=>{ if(!loadedRemote) $("saveStatus").textContent="Settings: this browser only"; },10000);
+    const snap = await DOC.get(); clearTimeout(t); loadedRemote=true;
+    const d = snap && (typeof snap.data==="function" ? snap.data() : snap);
+    if(d && d.json){ merge(JSON.parse(d.json)); persistLocal(); renderAll(); $("saveStatus").textContent="Settings loaded from artifact"+(d.savedAt?" · saved "+new Date(d.savedAt).toLocaleString():""); }
+    else $("saveStatus").textContent="Settings: shared (none saved yet)";
+  }catch(e){ $("saveStatus").textContent="Settings: this browser only"; }
+}
+
+/* ---------- table helper ---------- */
+const sortState = {};
+function renderTable(tableId, cols, rows, opts={}){
+  const st = sortState[tableId] || (sortState[tableId]={k:opts.sortKey||null, d:opts.sortDir||1});
+  let data = rows.slice();
+  if(st.k){ const c=cols.find(c=>c.k===st.k); const get=c&&c.sv?c.sv:(r=>r[st.k]);
+    data.sort((a,b)=>{const x=get(a),y=get(b); if(x==null&&y==null) return 0; if(x==null) return 1; if(y==null) return -1;
+      return (typeof x==="number"&&typeof y==="number"? x-y : (st.k==="store"?storeSort(x,y):String(x).localeCompare(String(y))))*st.d;}); }
+  const head = "<thead><tr>"+cols.map(c=>`<th class="${c.num?"num":""} ${c.nosort?"nosort":""}" data-k="${c.k}">${c.h}${st.k===c.k?(st.d>0?" ▲":" ▼"):""}</th>`).join("")+"</tr></thead>";
+  const limit = opts.limit||100000;
+  const body = data.slice(0,limit).map(r=>`<tr class="${opts.rowClass?opts.rowClass(r):""}">`+cols.map(c=>`<td class="${c.num?"num":""}">${c.f?c.f(r):esc(r[c.k])}</td>`).join("")+"</tr>").join("");
+  const foot = opts.total ? `<tr class="total">${cols.map(c=>`<td class="${c.num?"num":""}">${opts.total[c.k]??""}</td>`).join("")}</tr>` : "";
+  const t=$(tableId); t.innerHTML = head+"<tbody>"+body+foot+"</tbody>";
+  t.querySelectorAll("th:not(.nosort)").forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(st.k===k) st.d*=-1; else {st.k=k; st.d=1;} opts.rerender?opts.rerender():renderAll(); });
+  return data.length;
+}
+const flagPills = r=> r.flags.filter(f=>f[1]!=="info"||["Loaner","Replaced","Planned"].includes(f[0])).map(f=>`<span class="pill ${f[1]}" title="${esc(f[2])}">${esc(f[0])}</span>`).join(" ");
+
+/* ---------- views ---------- */
+function renderBanner(){
+  const b=[];
+  if(S.fundingRate==null) b.push(`<div class="banner bad"><b>Funding rate needed.</b> Base rates are blank until you enter the ${S.year} funding rate on <a href="#assumptions">Assumptions</a>. Totals below show fees and maintenance only.</div>`);
+  if(false) b.push(`<div class="banner warn"><b>${noMiles} charge store(s) have trucks or tractors but no miles.</b> Variable R&amp;M is $0 for them until miles are entered on <a href="#miles">Miles</a>.</div>`);
+  $("globalBanner").innerHTML=b.join("");
+}
+function renderKpis(){
+  const ch = CALC.stores.filter(s=>!s.excluded);
+  const rows = CALC.rows.filter(r=>!r.excluded && r.counted);
+  const m = ch.reduce((t,s)=>t+s.monthly,0);
+  const flagged = rows.filter(r=>r.flagged).length;
+  const exUnits = CALC.rows.filter(r=>r.excluded).length;
+  $("kpis").innerHTML = [
+    ["Monthly charge, all stores", money(m,0), `${ch.filter(s=>s.units).length} charge stores`],
+    ["Annual charge", money(m*12,0), `Rate year ${S.year}`],
+    ["Assets charged", fmt(rows.length,0), `${fmt(exUnits,0)} more at excluded locations`],
+    ["Avg monthly per asset", money(rows.length?m/rows.length:0), "incl. maintenance"],
+    ["Flagged assets", fmt(flagged,0), flagged?"See Flags tab":"None"]
+  ].map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="n">${k[2]}</div></div>`).join("");
+}
+const SUMCOLS = [
+  {k:"store",h:"Store"},{k:"name",h:"Name"},
+  {k:"units",h:"Units",num:1,f:r=>fmt(r.units,0)},
+  {k:"base",h:"Base rate",num:1,f:r=>money(r.base)},
+  {k:"adval",h:"Ad valorem",num:1,f:r=>money(r.adval)},
+  {k:"reg",h:"Registration",num:1,f:r=>money(r.reg)},
+  {k:"gps",h:"GPS",num:1,f:r=>money(r.gps)},
+  {k:"lytx",h:"Lytx",num:1,f:r=>money(r.lytx)},
+  {k:"maint",h:"Maintenance",num:1,f:r=>money(r.maint)},
+  {k:"monthly",h:"Monthly rate",num:1,f:r=>`<b>${money(r.monthly)}</b>`},
+  {k:"annual",h:"Annual",num:1,f:r=>money(r.annual,0)},
+  {k:"flagged",h:"Flags",f:r=>(r.excluded?'<span class="pill ex">Excluded</span> ':"")+(r.flagged?`<span class="pill bad">${r.flagged}</span>`:"")}
+];
+function renderSummary(){
+  const q=$("sumSearch").value.trim().toLowerCase(), showEx=$("sumShowEx").checked;
+  let rows = CALC.stores.filter(s=>s.units>0 && (showEx||!s.excluded) && (!q || s.store.toLowerCase().includes(q) || (s.name||"").toLowerCase().includes(q)));
+  const ch = rows.filter(r=>!r.excluded);
+  const tot={}; ["units","base","adval","reg","gps","lytx","maint","monthly","annual"].forEach(k=>{const v=ch.reduce((t,r)=>t+(r[k]||0),0); tot[k]= k==="units"?fmt(v,0):money(v,k==="annual"?0:2);});
+  tot.store="Total"; tot.name = showEx?"charge stores only":"";
+  renderTable("sumTable", SUMCOLS, rows, {sortKey:"store", total:tot, rowClass:r=>r.excluded?"excl":"", rerender:renderSummary});
+}
+const ACOLS = [
+  {k:"store",h:"Store"},{k:"asset",h:"Asset"},{k:"template",h:"Template"},{k:"rtype",h:"Rate type"},{k:"cls",h:"Class"},
+  {k:"own",h:"Ownership"},{k:"status",h:"Status"},
+  {k:"cost",h:"Cost w/ tax",num:1,f:r=>r.cost==null?'<span class="pill bad">#N/A</span>':money(r.cost)+(r.costOverridden?' <span class="pill info" title="Cost override">ovr</span>':"")},
+  {k:"am",h:"Aftermarket",num:1,f:r=>r.am?money(r.am):'<span class="muted">—</span>'},
+  {k:"delivered",h:"Delivered",num:1,f:r=>money(r.delivered)},
+  {k:"resid",h:"Residual",num:1,f:r=>money(r.resid)},
+  {k:"indBase",h:"Indiv. base",num:1,f:r=>money(r.ind.base),sv:r=>r.ind.base},
+  {k:"indMonthly",h:"Indiv. rate",num:1,f:r=>money(r.indMonthly)},
+  {k:"typeRate",h:"Type rate",num:1,f:r=>money(r.typeRate)},
+  {k:"diff",h:"Type − indiv.",num:1,f:r=>r.indMonthly==null?"—":money(r.typeRate-r.indMonthly),sv:r=>r.indMonthly==null?null:r.typeRate-r.indMonthly},
+  {k:"maint",h:"Maint. in rate",num:1,f:r=>money(r.maint)},
+  {k:"monthly",h:"Monthly charge",num:1,f:r=>`<b>${money(r.monthly)}</b>`},
+  {k:"age",h:"Age (mo)",num:1,f:r=>r.age==null?"—":fmt(r.age,0)},
+  {k:"flags",h:"Flags",nosort:1,f:flagPills}
+];
+function renderTypes(){
+  const q=$("tSearch").value.trim().toLowerCase(), cl=$("tClass").value, showEx=$("tShowEx").checked;
+  const rows = Object.values(CALC.TYPE).filter(t=>(showEx||t.units>0) && (!cl||t.cls===cl) && (!q||t.template.toLowerCase().includes(q)||t.cls.toLowerCase().includes(q)));
+  const tot={template:"Total (charge units)"}; tot.units=fmt(rows.reduce((x,t)=>x+t.units,0),0);
+  tot.ext = money(rows.reduce((x,t)=>x+t.rate*t.units,0));
+  renderTable("tTable",[
+    {k:"template",h:"Asset type",f:t=>esc(t.template)+(t.templates.length>1?`<div class="muted small">${t.templates.map(esc).join(" + ")}</div>`:"")},{k:"cls",h:"Class"},
+    {k:"units",h:"Charge units",num:1,f:t=>fmt(t.units,0)},
+    {k:"n",h:"Units in avg.",num:1,f:t=>fmt(t.n,0)+(t.basis==="all"?' <span class="pill ex" title="No charge units; averaged over all locations">all locs</span>':"")+(t.unpriced?` <span class="pill warn" title="Units with no cost, charged the average">${t.unpriced} no cost</span>`:"")},
+    {k:"delivered",h:"Avg delivered",num:1,f:t=>money(t.delivered,0)},
+    {k:"base",h:"Base",num:1,f:t=>money(t.base)},
+    {k:"adval",h:"Ad val.",num:1,f:t=>money(t.adval)},
+    {k:"reg",h:"Reg.",num:1,f:t=>money(t.reg)},
+    {k:"gps",h:"GPS",num:1,f:t=>money(t.gps)},
+    {k:"lytx",h:"Lytx",num:1,f:t=>money(t.lytx)},
+    {k:"maint",h:"Maintenance",num:1,f:t=>money(t.maint)+(t.um?(t.um.meas==="unit-month"?`<div class="muted small">Fexa avg / unit-month${t.um.basis==="all"?" (all locs)":""}</div>`:`<div class="muted small">$${fmt(t.um.rate,t.um.meas==="mile"?3:2)}/${t.um.meas==="mile"?"mi":"hr"} × ${fmt(t.um.mo,0)}${t.um.locked?" (locked)":""}</div>`):'<div class="muted small">fixed</div>')},
+    {k:"rate",h:"Monthly rate",num:1,f:t=>`<b>${t.n?money(t.rate):'<span class="pill bad">no data</span>'}</b>`+(t.cls==="Unassigned"?' <span class="pill bad">no class</span>':"")},
+    {k:"annual",h:"Annual",num:1,f:t=>money(t.rate*12,0),sv:t=>t.rate},
+    {k:"min",h:"Indiv. low",num:1,f:t=>money(t.min)},
+    {k:"max",h:"Indiv. high",num:1,f:t=>money(t.max)},
+    {k:"ext",h:"Monthly × units",num:1,f:t=>money(t.rate*t.units),sv:t=>t.rate*t.units}
+  ], rows, {sortKey:"cls", total:tot, rowClass:t=>(t.units?"":"excl ")+(t.cls==="Unassigned"?"flagged":""), rerender:renderTypes});
+}
+function maintRows(){
+  const rts=[...new Set(TEMPLATES.map(rt))];
+  return rts.map(maintFor).filter(Boolean).map(m=>{
+    const useCh = m.ch.units>0, b = useCh?m.ch:m.all;
+    const T = CALC.TYPE[m.t];
+    const units = T?T.units:0;
+    const cls = clsOf(m.t); const C=S.classes[cls]||{};
+    const lk = (S.lockedMaint||{})[m.t];
+    const rUsed = lk!=null ? lk : (S.maintAvg==="weighted" ? b.rate : b.mean);
+    const moU = b.mo!=null ? b.mo : (lk!=null ? m.moAny : null);
+    const implied = (rUsed!=null && moU!=null) ? Math.round(rUsed*moU*100)/100 : null;
+    const current = C.maint??null;
+    return {t:m.t, cls, meas:m.meas, basis:useCh?"charge":"all", units, n:b.units, maint:b.maint, use:b.use, rate:rUsed, wtd:b.rate, mean:b.mean, rateAll:(S.maintAvg==="weighted"?m.all.rate:m.all.mean), med:b.med, mo:moU, used: USAGE_CLASSES.has(cls) && implied!=null,
+      implied, current, currentLabel:"fixed", diff: (implied!=null&&current!=null)? implied-current : null, std:m.std, he:m.he, locked: lk!=null};
+  });
+}
+function renderMaint(){
+  const meas=$("mMeas").value, showAll=$("mShowAll").checked;
+  const rows = maintRows().filter(r=>(!meas||r.meas===meas) && (showAll||r.units>0));
+  const u = r=>r.meas==="mile"?"mi":"hr";
+  renderTable("mTable",[
+    {k:"t",h:"Asset type"},{k:"cls",h:"Class"},
+    {k:"meas",h:"Per",f:r=>r.meas==="mile"?"Mile":"Hour"},
+    {k:"units",h:"Charge units",num:1,f:r=>fmt(r.units,0)},
+    {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
+    {k:"maint",h:"YTD maint.",num:1,f:r=>money(r.maint,0)},
+    {k:"use",h:"YTD miles / hours",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
+    {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")},
+    {k:"mean",h:"Simple avg.",num:1,f:r=>r.mean==null?"—":"$"+fmt(r.mean,r.meas==="mile"?3:2)},
+    {k:"wtd",h:"Weighted",num:1,f:r=>r.wtd==null?"—":"$"+fmt(r.wtd,r.meas==="mile"?3:2)},
+    {k:"med",h:"Median unit rate",num:1,f:r=>r.med==null?"—":"$"+fmt(r.med,r.meas==="mile"?3:2)},
+    {k:"mo",h:"Avg monthly use / unit",num:1,f:r=>r.mo==null?"—":fmt(r.mo,0)+" "+u(r)},
+    {k:"implied",h:"Maint. in rate / unit / mo",num:1,f:r=>money(r.implied)},
+    {k:"current",h:"Old fixed / unit / mo",num:1,f:r=>r.current==null?"—":money(r.current)},
+    {k:"diff",h:"Change vs. fixed",num:1,f:r=>r.diff==null?"—":`<span style="color:${r.diff>0?"var(--bad)":"var(--ok)"}">${money(r.diff)}</span>`}
+  ], rows, {sortKey:"cls", rowClass:r=>r.units?"":"excl", rerender:renderMaint});
+}
+function filterAssets(){
+  const q=$("aSearch").value.trim().toLowerCase(), st=$("aStore").value, cl=$("aClass").value, sc=$("aScope").value, fo=$("aFlagOnly").checked;
+  return CALC.rows.filter(r=>(sc==="all"||(sc==="charge"?!r.excluded:r.excluded)) && (!st||r.store===st) && (!cl||r.cls===cl) && (!fo||r.flagged)
+    && (!q || [r.store,r.asset,r.template,r.cls,r.serial,r.mfr,r.storeName].join(" ").toLowerCase().includes(q)));
+}
+function renderAssets(){
+  const rows = filterAssets();
+  const tot={store:"Total",asset:fmt(rows.filter(r=>r.counted).length,0)+" units"};
+  ["cost","am","delivered","typeRate","maint","monthly"].forEach(k=>tot[k]=money(rows.filter(r=>r.counted).reduce((t,r)=>t+(r[k]||0),0)));
+  const n = renderTable("aTable", ACOLS, rows, {sortKey:"store", total:tot, limit:2000,
+    rowClass:r=>(r.excluded?"excl ":"")+(r.flagged?"flagged":"")+(!r.counted?" excl":""), rerender:renderAssets});
+  $("aCount").textContent = `${fmt(n,0)} assets`;
+}
+function fillSelects(){
+  $("aStore").innerHTML = '<option value="">All stores</option>'+STORES.map(s=>`<option value="${esc(s)}">${esc(s)} · ${esc(STORE_NAMES[s])}</option>`).join("");
+  $("aClass").innerHTML = '<option value="">All classes</option>'+CLASS_ORDER.map(c=>`<option>${esc(c)}</option>`).join("");
+  $("tClass").innerHTML = $("aClass").innerHTML;
+}
+function renderAssumptions(){
+  const fields = [
+    ["year","Rate year","",1],
+    ["fundingRate","Funding rate (annual %)","e.g. 6.25 for 6.25%",0.01],
+    ["adValPct","Ad valorem (% of delivered cost, annual)","Applied to all assets",0.01],
+    ["gps","GPS ($/month)","Road units only",0.01],
+    ["lytx","Lytx ($/month)","Road units only",0.01],
+  ].filter(Boolean);
+  $("formGlobal").innerHTML = fields.map(f=>`<label>${f[1]}${f[2]?`<small>${f[2]}</small>`:""}</label><input class="in ${f[0]==="fundingRate"&&S.fundingRate==null?"need":""}" type="number" step="${f[3]}" data-g="${f[0]}" value="${S[f[0]]??""}" placeholder="${f[0]==="fundingRate"?"required":""}">`).join("")
+    + `<label>Maintenance $/mile-hour average<small>How each type's maintenance rate is averaged</small></label><select class="in" data-g="maintAvg"><option value="simple" ${S.maintAvg!=="weighted"?"selected":""}>Simple avg. of unit rates</option><option value="weighted" ${S.maintAvg==="weighted"?"selected":""}>Weighted (spend ÷ usage)</option></select>`
+    + `<label>Pickup maintenance ($/mile, locked)<small>Used instead of Fexa data, which is incomplete for pickups</small></label><input class="in" type="number" step="0.001" data-g="pickupLock" value="${(S.lockedMaint||{}).Pickup??""}">`
+    + `<label>Car maintenance ($/mile, locked)</label><input class="in" type="number" step="0.001" data-g="carLock" value="${(S.lockedMaint||{}).Car??""}">`
+    + `<label>Charge loaner units<small>Loaners are billed to the store currently holding them</small></label><select class="in" data-g="includeLoaners"><option value="1" ${S.includeLoaners?"selected":""}>Yes</option><option value="0" ${!S.includeLoaners?"selected":""}>No</option></select>`;
+  $("formGlobal").querySelectorAll("[data-g]").forEach(el=>el.onchange=()=>{ const k=el.dataset.g;
+    if(k==="includeLoaners") S[k]=el.value==="1"; else if(k==="maintAvg") S[k]=el.value; else if(k==="carLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Car; else S.lockedMaint.Car=v; } else if(k==="pickupLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Pickup; else S.lockedMaint.Pickup=v; } else S[k]=num(el.value);
+    if(k==="year"&&S.year==null) S.year=DEFAULTS.year; changed(); });
+  $("exChips").innerHTML = S.excluded.slice().sort(storeSort).map(s=>`<span class="chip">${esc(s)} <span class="muted small">${esc(STORE_NAMES[s]||"not in list")}</span><button data-x="${esc(s)}" title="Put back on flat rate">×</button></span>`).join("");
+  $("exChips").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{ S.excluded=S.excluded.filter(x=>x!==b.dataset.x); changed(); });
+  const P=S.planned||{}; const known=new Set(ASSETS.map(a=>a.asset));
+  $("plannedBox").innerHTML = `<div class="form" style="grid-template-columns:1fr 160px;max-width:640px">
+    <label>Include planned changes</label><select class="in" data-p="on"><option value="1" ${P.on?"selected":""}>Yes</option><option value="0" ${!P.on?"selected":""}>No</option></select>
+    <label>Asset type<small>New units take this template</small></label><input class="in" value="${esc(P.template||"")}" disabled>
+    <label>In service</label><input class="in" data-p="when" value="${esc(P.when||"")}">
+    <label>Cost per new unit, with tax<small>Placeholder: avg of 2023–2024 store Tractor TAs; replace with the quote</small></label><input class="in" type="number" data-p="cost" value="${P.cost??""}">
+    <label>New-unit maintenance ($/mile)</label><input class="in" type="number" step="0.001" data-p="newRate" value="${P.newRate??""}">
+    </div>
+    <label class="small muted" style="display:block;margin:10px 0 4px">Units being replaced (asset numbers, comma separated)</label>
+    <textarea class="in" data-p="replace" style="min-height:50px">${esc((P.replace||[]).join(", "))}</textarea>
+    <div class="small" style="margin-top:6px">${(P.replace||[]).map(id=>{const a=ASSETS.find(x=>x.asset===String(id)); return a?`<span class="pill ex">${esc(id)} · ${esc(a.store)} ${esc(a.storeName)} · ${esc(a.orig.slice(0,4))}</span>`:`<span class="pill bad">${esc(id)} not found</span>`;}).join(" ")}</div>`;
+  $("plannedBox").querySelectorAll("[data-p]").forEach(el=>el.onchange=()=>{ S.planned=Object.assign({},S.planned); const k=el.dataset.p;
+    if(k==="on") S.planned.on=el.value==="1"; else if(k==="replace") S.planned.replace=el.value.split(/[\s,]+/).map(x=>x.trim()).filter(Boolean);
+    else if(k==="when") S.planned.when=el.value; else S.planned[k]=num(el.value); changed(); });
+  // class table
+  const counts={}; CALC.rows.forEach(r=>{ if(!r.excluded) counts[r.cls]=(counts[r.cls]||0)+1; });
+  const h = `<thead><tr><th class="nosort">Class</th><th class="nosort num">Charge units</th><th class="nosort num">Life (mo)</th><th class="nosort num">Residual %</th><th class="nosort num">Registration %</th><th class="nosort">GPS</th><th class="nosort">Lytx</th><th class="nosort num">Fixed maint. $/mo<br><span style="font-weight:400">fallback: no Fexa history</span></th></tr></thead>`;
+  const b = CLASS_ORDER.filter(c=>c!=="Unassigned").map(c=>{const C=S.classes[c]; return `<tr><td>${esc(c)}</td><td class="num">${fmt(counts[c]||0,0)}</td>
+    <td class="num"><input class="in" type="number" data-c="${esc(c)}" data-f="life" value="${C.life}"></td>
+    <td class="num"><input class="in" type="number" step="0.1" data-c="${esc(c)}" data-f="resid" value="${C.resid}"></td>
+    <td class="num"><input class="in" type="number" step="0.01" data-c="${esc(c)}" data-f="reg" value="${C.reg}"></td>
+    <td><input type="checkbox" data-c="${esc(c)}" data-f="gps" ${C.gps?"checked":""}></td>
+    <td><input type="checkbox" data-c="${esc(c)}" data-f="lytx" ${C.lytx?"checked":""}></td>
+    <td class="num"><input class="in" type="number" step="0.01" data-c="${esc(c)}" data-f="maint" value="${C.maint}"></td></tr>`;}).join("");
+  $("classTable").innerHTML = h+"<tbody>"+b+"</tbody>";
+  $("classTable").querySelectorAll("[data-c]").forEach(el=>el.onchange=()=>{ const C=S.classes[el.dataset.c], f=el.dataset.f;
+    C[f] = el.type==="checkbox" ? el.checked : (num(el.value)??0); changed(); });
+}
+$("exAddBtn").onclick=()=>{ const v=$("exAdd").value.trim().toUpperCase(); if(!v) return; if(!S.excluded.includes(v)) S.excluded.push(v); $("exAdd").value=""; changed(); };
+function renderMap(){
+  const by={}; ASSETS.forEach(a=>{ const o=by[a.template]||(by[a.template]={n:0,ch:0,mfr:new Set()}); o.n++; if(!isExcluded(a.store)) o.ch++; if(a.mfr) o.mfr.add(a.mfr); });
+  const h = `<thead><tr><th class="nosort">Template</th><th class="nosort num">Units (all)</th><th class="nosort num">Charge units</th><th class="nosort">Manufacturers</th><th class="nosort">Rate class</th></tr></thead>`;
+  const b = TEMPLATES.map(t=>{ const cls=S.templateMap[t]||"Unassigned"; return `<tr class="${cls==="Unassigned"?"flagged":""}"><td>${esc(t)}</td><td class="num">${by[t].n}</td><td class="num">${by[t].ch}</td><td class="muted small">${esc([...by[t].mfr].slice(0,4).join(", "))}</td>
+    <td><select class="in" data-t="${esc(t)}">${CLASS_ORDER.map(c=>`<option ${c===cls?"selected":""}>${esc(c)}</option>`).join("")}</select>${cls==="Unassigned"?' <span class="pill bad">needs class</span>':""}</td></tr>`;}).join("");
+  $("mapTable").innerHTML=h+"<tbody>"+b+"</tbody>";
+  $("mapTable").querySelectorAll("[data-t]").forEach(el=>el.onchange=()=>{ S.templateMap[el.dataset.t]=el.value; changed(); });
+}
+function renderMiles(){
+  $("milesBasis").value=S.milesBasis; $("milesMonths").value=S.milesMonths; $("milesMonthsWrap").style.display=S.milesBasis==="ytd"?"":"none";
+  const rows = CALC.stores.filter(s=>s.varUnits || S.miles[s.store]!=null);
+  const h=`<thead><tr><th class="nosort">Store</th><th class="nosort">Name</th><th class="nosort num">Trucks/tractors</th><th class="nosort num">Miles (${S.milesBasis==="ytd"?"YTD":S.milesBasis})</th><th class="nosort num">Monthly miles</th><th class="nosort num">Variable R&amp;M / mo</th><th class="nosort"></th></tr></thead>`;
+  const b = rows.sort((a,b)=>(a.excluded-b.excluded)||storeSort(a.store,b.store)).map(s=>`<tr class="${s.excluded?"excl":""}"><td>${esc(s.store)}</td><td>${esc(s.name)}</td><td class="num">${s.varUnits}</td>
+    <td class="num"><input class="in ${!s.excluded&&s.varUnits&&S.miles[s.store]==null?"need":""}" type="number" data-m="${esc(s.store)}" value="${S.miles[s.store]??""}"></td>
+    <td class="num">${s.miles==null?"—":fmt(s.miles,0)}</td><td class="num">${money(s.variable)}</td><td>${s.excluded?'<span class="pill ex">Excluded</span>':""}${!s.varUnits?'<span class="pill info">no trucks</span>':""}</td></tr>`).join("");
+  $("milesTable").innerHTML=h+"<tbody>"+b+"</tbody>";
+  $("milesTable").querySelectorAll("[data-m]").forEach(el=>el.onchange=()=>{ const v=num(el.value); if(v==null) delete S.miles[el.dataset.m]; else S.miles[el.dataset.m]=v; changed(); });
+}
+$("milesBasis").onchange=e=>{S.milesBasis=e.target.value; changed();};
+$("milesMonths").onchange=e=>{S.milesMonths=num(e.target.value)||1; changed();};
+function parseGrid(text){ return text.split(/\r?\n/).map(l=>l.split(/\t|,(?=(?:[^"]*"[^"]*")*[^"]*$)/).map(c=>c.replace(/^"|"$/g,"").trim())).filter(r=>r.some(c=>c!=="")); }
+function normStore(v){ let s=String(v??"").trim().toUpperCase(); if(/^\d+(\.0+)?$/.test(s)) s=String(parseInt(s,10)); return s; }
+function applyMiles(grid){
+  let n=0, skipped=0;
+  grid.forEach(r=>{ const st=normStore(r[0]), m=num(r[1]); if(!st||m==null){skipped++;return;} S.miles[st]=m; n++; });
+  $("milesMsg").textContent=`${n} store(s) updated${skipped?`, ${skipped} row(s) skipped (header or blank)`:""}.`; changed();
+}
+$("milesApply").onclick=()=>applyMiles(parseGrid($("milesPaste").value));
+$("milesClear").onclick=()=>{ S.miles={}; $("milesMsg").textContent="Miles cleared."; changed(); };
+async function readFileGrid(file){
+  const buf = await file.arrayBuffer();
+  if(typeof XLSX==="undefined"){ return parseGrid(new TextDecoder().decode(buf)); }
+  const wb = XLSX.read(buf,{type:"array"}); const ws=wb.Sheets[wb.SheetNames[0]];
+  return XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:""}).map(r=>r.map(c=>String(c).trim())).filter(r=>r.some(c=>c!==""));
+}
+function pickCols(grid, wanted){ // wanted: {key:[regex,...]} -> returns {rows, idx}
+  const head = (grid[0]||[]).map(h=>h.toLowerCase());
+  const idx={}; let hasHeader=false;
+  Object.entries(wanted).forEach(([k,res])=>{ const i=head.findIndex(h=>res.some(re=>re.test(h))); if(i>=0){idx[k]=i;hasHeader=true;} });
+  return {idx, rows: hasHeader?grid.slice(1):grid, hasHeader};
+}
+$("milesFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+  try{ const g=await readFileGrid(f); const p=pickCols(g,{store:[/store/,/location/,/loc/],miles:[/mile/]});
+    applyMiles(p.hasHeader&&p.idx.store!=null&&p.idx.miles!=null ? p.rows.map(r=>[r[p.idx.store],r[p.idx.miles]]) : g);
+  }catch(err){ $("milesMsg").textContent="Couldn't read that file: "+err.message; } e.target.value=""; };
+function applyAdj(grid, idx){
+  let am=0, co=0, unk=0;
+  const known = new Set(ASSETS.map(a=>a.asset));
+  grid.forEach(r=>{ const a=String(r[idx.asset??0]??"").trim().replace(/\.0+$/,""); if(!a||!/\d/.test(a)) return; if(!known.has(a)){unk++;return;}
+    const v1=num(r[idx.am??1]), v2=num(r[idx.cost??2]);
+    if(v1!=null){S.amAsset[a]=v1;am++;} if(v2!=null){S.costOverride[a]=v2;co++;} });
+  $("adjMsg").textContent=`${am} aftermarket, ${co} cost value(s) applied${unk?`; ${unk} asset number(s) not in the list`:""}.`; changed();
+}
+$("adjApply").onclick=()=>{ const g=parseGrid($("adjPaste").value); const p=pickCols(g,{asset:[/asset/],am:[/after/],cost:[/cost/,/value/]}); applyAdj(p.rows,p.idx); };
+$("adjFile").onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+  try{ const g=await readFileGrid(f); const p=pickCols(g,{asset:[/asset\s*(name|#|num|number)?$/],am:[/after/],cost:[/cost/,/value/]}); applyAdj(p.rows,p.idx); }
+  catch(err){ $("adjMsg").textContent="Couldn't read that file: "+err.message; } e.target.value=""; };
+function renderAdjust(){
+  const h=`<thead><tr><th class="nosort">Template</th><th class="nosort">Class</th><th class="nosort num">Default aftermarket $</th></tr></thead>`;
+  $("amTplTable").innerHTML=h+"<tbody>"+TEMPLATES.map(t=>`<tr><td>${esc(t)}</td><td class="muted">${esc(S.templateMap[t]||"Unassigned")}</td><td class="num"><input class="in" type="number" data-at="${esc(t)}" value="${S.amTemplate[t]??""}"></td></tr>`).join("")+"</tbody>";
+  $("amTplTable").querySelectorAll("[data-at]").forEach(el=>el.onchange=()=>{ const v=num(el.value); if(v==null) delete S.amTemplate[el.dataset.at]; else S.amTemplate[el.dataset.at]=v; changed(); });
+  const q=$("adjSearch").value.trim().toLowerCase();
+  const rows = CALC.rows.filter(r=>a_orig(r)==null || S.amAsset[r.asset]!=null || S.costOverride[r.asset]!=null)
+    .filter(r=>!q||[r.asset,r.store,r.template].join(" ").toLowerCase().includes(q));
+  const h2=`<thead><tr><th class="nosort">Store</th><th class="nosort">Asset</th><th class="nosort">Template</th><th class="nosort">Status</th><th class="nosort num">List cost</th><th class="nosort num">Cost override</th><th class="nosort num">Aftermarket (asset)</th><th class="nosort"></th></tr></thead>`;
+  $("adjTable").innerHTML=h2+"<tbody>"+rows.sort((a,b)=>storeSort(a.store,b.store)).map(r=>{const o=ASSETS.find(a=>a.asset===r.asset); return `<tr class="${r.excluded?"excl":""}"><td>${esc(r.store)}</td><td>${esc(r.asset)}</td><td>${esc(r.template)}</td><td>${esc(r.status)}</td>
+    <td class="num">${o.cost==null?'<span class="pill bad">#N/A</span>':money(o.cost)}</td>
+    <td class="num"><input class="in ${o.cost==null&&S.costOverride[r.asset]==null?"need":""}" type="number" data-co="${esc(r.asset)}" value="${S.costOverride[r.asset]??""}"></td>
+    <td class="num"><input class="in" type="number" data-aa="${esc(r.asset)}" value="${S.amAsset[r.asset]??""}"></td><td>${r.excluded?'<span class="pill ex">Excluded</span>':""}</td></tr>`;}).join("")+"</tbody>";
+  $("adjTable").querySelectorAll("[data-co]").forEach(el=>el.onchange=()=>{ const v=num(el.value); if(v==null) delete S.costOverride[el.dataset.co]; else S.costOverride[el.dataset.co]=v; changed(); });
+  $("adjTable").querySelectorAll("[data-aa]").forEach(el=>el.onchange=()=>{ const v=num(el.value); if(v==null) delete S.amAsset[el.dataset.aa]; else S.amAsset[el.dataset.aa]=v; changed(); });
+}
+const ORIG_COST = {}; ASSETS.forEach(a=>ORIG_COST[a.asset]=a.cost);
+function a_orig(r){ return ORIG_COST[r.asset]; }
+function flagList(scope){
+  const out=[];
+  CALC.rows.forEach(r=>{ if(scope==="charge"&&r.excluded) return; r.flags.forEach(f=>{ if(f[0]==="No funding rate") return; out.push({store:r.store,asset:r.asset,template:r.template,type:f[0],sev:f[1],msg:f[2],excluded:r.excluded}); }); });
+  CALC.storeFlags.forEach(f=>{ if(scope==="charge"&&isExcluded(f.store)) return; out.push({store:f.store,asset:"(store)",template:"",type:f.type,sev:f.sev,msg:f.msg,excluded:isExcluded(f.store)}); });
+  return out;
+}
+function renderFlags(){
+  const scope=$("fScope").value, type=$("fType").value;
+  const all = flagList(scope);
+  const types=[...new Set(all.map(f=>f.type))].sort();
+  const cur=$("fType").value;
+  $("fType").innerHTML='<option value="">All flag types</option>'+types.map(t=>`<option ${t===cur?"selected":""}>${esc(t)}</option>`).join("");
+  const rows = all.filter(f=>!type||f.type===type);
+  const sevRank={bad:0,warn:1,info:2};
+  renderTable("fTable",[
+    {k:"sev",h:"Severity",f:r=>`<span class="pill ${r.sev}">${r.sev==="bad"?"Fix":r.sev==="warn"?"Check":"Info"}</span>`,sv:r=>sevRank[r.sev]},
+    {k:"type",h:"Flag"},{k:"store",h:"Store"},{k:"asset",h:"Asset"},{k:"template",h:"Template"},{k:"msg",h:"Detail",nosort:1,f:r=>`<span style="white-space:normal">${esc(r.msg)}</span>`+(r.excluded?' <span class="pill ex">Excluded</span>':"")}
+  ], rows, {sortKey:"sev", rerender:renderFlags});
+  const n = flagList("charge").filter(f=>f.sev!=="info").length;
+  $("flagCount").textContent=n; $("flagCount").className="pill "+(n?"bad":"ok");
+}
+
+/* ---------- routing ---------- */
+const VIEWS=["summary","types","maint","assets","assumptions","classes","adjust","flags"];
+let current="summary";
+function route(){ const h=(location.hash||"").slice(1); current = VIEWS.includes(h)?h:"summary";
+  document.querySelectorAll(".view").forEach(v=>v.classList.toggle("active",v.id==="v-"+current));
+  document.querySelectorAll("#nav a").forEach(a=>a.classList.toggle("active",a.dataset.v===current));
+  renderCurrent(); }
+function renderCurrent(){
+  ({summary:()=>{renderKpis();renderSummary();},types:renderTypes,maint:renderMaint,assets:renderAssets,assumptions:renderAssumptions,classes:renderMap,adjust:renderAdjust,flags:renderFlags})[current]();
+}
+function renderAll(){ compute(); renderBanner(); renderFlags(); renderCurrent();
+  $("sub").textContent=`Rate year ${S.year} · funding ${S.fundingRate==null?"not set":S.fundingRate+"%"} · asset list as of 11/13/2026 (${ASSETS.length} assets)`; }
+window.addEventListener("hashchange",route);
+["mMeas","mShowAll"].forEach(id=>$(id).addEventListener("input",renderMaint));
+["tSearch","tClass","tShowEx"].forEach(id=>$(id).addEventListener("input",renderTypes));
+["sumSearch","sumShowEx"].forEach(id=>$(id).addEventListener("input",renderSummary));
+["aSearch","aStore","aClass","aScope","aFlagOnly"].forEach(id=>$(id).addEventListener("input",renderAssets));
+["fType","fScope"].forEach(id=>$(id).addEventListener("input",renderFlags));
+$("adjSearch").addEventListener("input",renderAdjust);
+
+/* ---------- export ---------- */
+let DL=null;
+$("btnExport").onclick = async ()=>{
+  if(typeof XLSX==="undefined"){ toast("The spreadsheet library didn't load; reload the page and try again."); return; }
+  const wb = XLSX.utils.book_new();
+  const r2=v=>v==null?null:Math.round(v*100)/100;
+  const ch = CALC.stores.filter(s=>!s.excluded && s.units);
+  const sumRows = ch.map(s=>({"Store":s.store,"Store Name":s.name,"Units":s.units,"Base Rate":r2(s.base),"Ad Valorem":r2(s.adval),"Registration":r2(s.reg),"GPS":r2(s.gps),"Lytx":r2(s.lytx),"Maintenance":r2(s.maint),"Monthly Rate":r2(s.monthly),"Annual Rate":r2(s.annual),"Flagged Assets":s.flagged}));
+  const ws1 = XLSX.utils.json_to_sheet(sumRows);
+  const n=sumRows.length, L=["D","E","F","G","H","I","K","L","M"];
+  XLSX.utils.sheet_add_aoa(ws1,[["TOTAL","",...["C","D","E","F","G","H","I","J","K"].map(c=>({f:`SUM(${c}2:${c}${n+1})`}))]],{origin:`A${n+2}`});
+  ws1["!cols"]=[{wch:8},{wch:26},{wch:7},...Array(11).fill({wch:13})];
+  XLSX.utils.book_append_sheet(wb, ws1, "Store Summary");
+  const assetRow = r=>({"Store":r.store,"Store Name":r.storeName,"Asset":r.asset,"Template":r.template,"Rate Type":r.rtype,"Rate Class":r.cls,"Manufacturer":r.mfr,"Serial":r.serial,"Ownership":r.own,"Status":r.status,"Origination":r.orig,"Age (mo)":r.age,
+    "Cost w/ Tax":r2(r.cost),"Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":S.classes[r.cls].life,"Residual %":S.classes[r.cls].resid/100,"Residual Value":r2(r.resid),
+    "Indiv. Base Rate":r2(r.ind.base),"Indiv. Ad Valorem":r2(r.ind.adval),"Indiv. Registration":r2(r.ind.reg),"Indiv. Monthly Rate":r2(r.indMonthly),
+    "Maint in Rate":r2(r.maint),"Type Rate":r2(r.typeRate),"Monthly Charge":r2(r.monthly),
+    "Charged":r.counted?"Y":"N","Flags":r.flags.map(f=>f[0]).join("; ")});
+  const typeRows = Object.values(CALC.TYPE).filter(t=>t.units>0).sort((a,b)=>CLASS_ORDER.indexOf(a.cls)-CLASS_ORDER.indexOf(b.cls)||a.template.localeCompare(b.template))
+    .map(t=>({"Asset Type":t.template,"Includes Templates":t.templates.join(" + "),"Rate Class":t.cls,"Charge Units":t.units,"Units in Average":t.n,"Units w/o Cost":t.unpriced,"Avg Delivered Cost":r2(t.delivered),
+      "Base Rate":t.base,"Ad Valorem":t.adval,"Registration":t.reg,"GPS":t.gps,"Lytx":t.lytx,"Maintenance":t.maint,"Maint Basis":t.um?(t.um.meas==="unit-month"?"Fexa avg per unit-month":`$${t.um.meas==="mile"?t.um.rate.toFixed(3)+"/mi":t.um.rate.toFixed(2)+"/hr"} × ${t.um.mo} ${t.um.meas==="mile"?"mi":"hr"}/mo`+(t.um.locked?" (locked)":"")):"Fixed class amount","Monthly Rate":r2(t.rate),"Annual Rate":r2(t.rate*12),
+      "Indiv. Low":r2(t.min),"Indiv. High":r2(t.max),"Monthly × Units":r2(t.rate*t.units)}));
+  const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
+  XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
+  const mr = maintRows().filter(r=>r.n>0).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":r.meas==="mile"?"Mile":"Hour","Basis":r.basis==="charge"?"Charge locations":"All locations",
+    "Charge Units":r.units,"Units w/ Usage":r.n,"YTD Maintenance":r2(r.maint),"YTD Miles/Hours":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
+    "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Jan–Aug hours estimated":"")}));
+  const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
+  XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
+  const sortRows = rs=>rs.slice().sort((a,b)=>storeSort(a.store,b.store)||a.asset.localeCompare(b.asset));
+  const ws2=XLSX.utils.json_to_sheet(sortRows(CALC.rows.filter(r=>!r.excluded)).map(assetRow)); ws2["!cols"]=Array(29).fill({wch:12});
+  XLSX.utils.book_append_sheet(wb, ws2, "Asset Rates");
+  const ws3=XLSX.utils.json_to_sheet(sortRows(CALC.rows.filter(r=>r.excluded)).map(assetRow)); ws3["!cols"]=Array(27).fill({wch:12});
+  XLSX.utils.book_append_sheet(wb, ws3, "Excluded Locations");
+  const fl=flagList("all").map(f=>({"Severity":f.sev==="bad"?"Fix":f.sev==="warn"?"Check":"Info","Flag":f.type,"Store":f.store,"Excluded Location":f.excluded?"Y":"","Asset":f.asset,"Template":f.template,"Detail":f.msg}));
+  const ws4=XLSX.utils.json_to_sheet(fl.length?fl:[{"Flag":"None"}]); ws4["!cols"]=[{wch:9},{wch:18},{wch:7},{wch:9},{wch:10},{wch:24},{wch:80}];
+  XLSX.utils.book_append_sheet(wb, ws4, "Flags");
+  const as=[["Rate year",S.year],["Funding rate (annual)",S.fundingRate==null?"NOT SET":S.fundingRate/100],["Ad valorem % (annual)",S.adValPct/100],["GPS $/mo",S.gps],["Lytx $/mo",S.lytx],["Pickup maintenance $/mile (locked)",(S.lockedMaint||{}).Pickup??"not locked"],["Car maintenance $/mile (locked)",(S.lockedMaint||{}).Car??"not locked"],["Maintenance average",S.maintAvg==="weighted"?"Weighted (spend ÷ usage)":"Simple average of unit rates"],["Planned 2027 changes",plannedOn()?`${S.planned.replace.length} new ${S.planned.template} at $${S.planned.cost} replacing ${S.planned.replace.join(", ")}; new-unit maint $${S.planned.newRate}/mi`:"none"],["Charge loaners",S.includeLoaners?"Yes":"No"],["Excluded locations",S.excluded.join(", ")],[],
+    ["Class","Life (mo)","Residual %","Registration %","GPS","Lytx","Fixed Maint $/mo (no-usage types)"],
+    ...CLASS_ORDER.map(c=>{const C=S.classes[c];return [c,C.life,C.resid/100,C.reg/100,C.gps?"Y":"N",C.lytx?"Y":"N",C.maint];}),[],
+    ["Template","Rate Class","Default Aftermarket"],...TEMPLATES.map(t=>[t,S.templateMap[t]||"Unassigned",S.amTemplate[t]??null])];
+  const ws5=XLSX.utils.aoa_to_sheet(as); ws5["!cols"]=[{wch:28},{wch:20},{wch:14},{wch:14},{wch:6},{wch:6},{wch:16},{wch:12}];
+  XLSX.utils.book_append_sheet(wb, ws5, "Assumptions");
+  const out = XLSX.write(wb,{bookType:"xlsx",type:"array"});
+  const fname = `Fleet Flat Rate ${S.year}.xlsx`;
+  try{
+    if(!(window.claude && window.claude.use)){ XLSX.writeFile(wb, fname); toast("Saved "+fname); return; }   // standalone (e.g. GitHub Pages)
+    if(!DL) DL = await window.claude.use("downloads");
+    if(!DL){ toast("Downloads aren't available in this view. Open the artifact on claude.ai to download."); return; }
+    await DL.save({filename:fname, data:new Blob([out])});
+    toast("Saved "+fname);
+  }catch(e){
+    const c=e&&e.code;
+    toast(c==="declined"?"Download cancelled.":c==="rate_limited"?"A download prompt is already open.":"Download unavailable here ("+(c||"error")+").");
+  }
+};
+
+/* ---------- init ---------- */
+loadLocal(); fillSelects(); compute(); route(); renderAll(); initDb();
+</script>
+</body>
+</html>

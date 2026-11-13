@@ -1,0 +1,129 @@
+"""Rebuild the calculator's data files.
+
+Usage:
+  python scripts/build_data.py ASSET_LIST.xlsx CPM_INDEX_HTML
+
+  ASSET_LIST.xlsx  current asset list export (Store Number, Store Name, Store District, Asset Name,
+                   Asset Template Name, Asset Manufacturer Name, Asset Serial Number, Asset Ownership,
+                   Asset Status, Asset Date of Origination, Asset Original Value)
+  CPM_INDEX_HTML   index.html from julianchetlange-svg/Fleet-CMP-HOUR-Analysis (the YTD cost per mile /
+                   hour report, which embeds the Fexa maintenance, miles and hours by asset)
+
+Writes data/assets.json, data/maint_rates.json, data/unitmonth.json and data/tractor_units.json.
+Then run scripts/build_html.py.
+"""
+import sys, json, math, collections, statistics as st
+from pathlib import Path
+import pandas as pd
+
+ROOT = Path(__file__).resolve().parent.parent
+DATA = ROOT / 'data'
+# locations not on flat rate (maintenance averages use the other locations first)
+EX = {'353', '355', '355CD', '356', '359', '489', '450', '950'}
+# CPM templates that are not rated per mile / hour
+SKIP = {'(blank)', 'Sub / rental unit', 'Electric Pallet Jack', 'Mobile Generator Trailer', 'Scissor Lift'}
+
+
+def assets(path):
+    df = pd.read_excel(path, dtype={'Store Number': str, 'Asset Serial Number': str})
+    v = lambda x: None if (x is None or (isinstance(x, float) and math.isnan(x))) else x
+    rows = [[str(r[0]), v(r[1]), v(r[2]), str(r[3]), v(r[4]), v(r[5]), v(r[6]), v(r[7]), v(r[8]), v(r[9]), v(r[10])]
+            for r in df.itertuples(index=False)]
+    (DATA / 'assets.json').write_text(json.dumps(rows, separators=(',', ':')))
+    return len(rows)
+
+
+def cpm(path):
+    s = Path(path).read_text()
+    i = s.index('const DATA = ') + len('const DATA = ')
+    d, _ = json.JSONDecoder().raw_decode(s[i:])
+    return d
+
+
+def usage(a):
+    if a['c'] in ('Truck', 'LD Vehicle'): return a['mi'], 'mile'
+    if a['c'] in ('Forklift', 'TMFL'): return a['hr'], 'hour'
+    return None, None
+
+
+def maint_rates(d):
+    """Fexa maintenance ÷ miles or hours by template. Units with an active month lacking usage are left out."""
+    blank = lambda: dict(units=0, m=0, u=0, am=0, rates=[], gap=0)
+    g = collections.defaultdict(lambda: {'all': blank(), 'ch': blank(), 'n': 0, 'he': 0})
+    anym = collections.defaultdict(lambda: {'ch': [0, 0], 'all': [0, 0]})
+    for a in d['assets']:
+        t = a['t'] or '(blank)'
+        arr, meas = usage(a)
+        if arr is None or t in SKIP: continue
+        o = g[t]; o['c'] = a['c']; o['meas'] = meas; o['n'] += 1
+        use = sum(arr)
+        if use <= 0: continue
+        ks = ['all', 'ch'] if a['s'] not in EX else ['all']
+        nmo = sum(1 for x in arr if x > 0)
+        for k in ks: anym[t][k][0] += use; anym[t][k][1] += nmo
+        if any(a['act'][i] and arr[i] <= 0 for i in range(len(arr))):
+            for k in ks: o[k]['gap'] += 1
+            continue
+        if meas == 'hour' and a.get('he') == 1: o['he'] += 1
+        m = sum(a['mrec']) if a.get('mrec') is not None else sum(a['maint'])  # recorded Fexa spend only
+        am = sum(a['act']) or len(arr)
+        for k in ks:
+            b = o[k]; b['units'] += 1; b['m'] += m; b['u'] += use; b['am'] += am; b['rates'].append(m / use)
+    out = []
+    for t, o in g.items():
+        row = dict(t=t, c=o['c'], meas=o['meas'], n=o['n'], std=0, he=o['he'])
+        for k in ('all', 'ch'):
+            b = o[k]
+            row[k] = dict(units=b['units'], gap=b['gap'], maint=round(b['m'], 2), use=round(b['u'], 1), am=b['am'],
+                          rate=round(b['m'] / b['u'], 4) if b['u'] else None,
+                          mean=round(sum(b['rates']) / len(b['rates']), 4) if b['rates'] else None,
+                          med=round(st.median(b['rates']), 4) if b['rates'] else None,
+                          mo=round(b['u'] / b['am'], 1) if b['am'] else None)
+        x = anym.get(t)
+        if x and (x['ch'][1] or x['all'][1]):
+            row['moAny'] = round(x['ch'][0] / x['ch'][1] if x['ch'][1] else x['all'][0] / x['all'][1], 1)
+        out.append(row)
+    out.sort(key=lambda r: (r['c'], r['t']))
+    (DATA / 'maint_rates.json').write_text(json.dumps(out, separators=(',', ':')))
+
+
+def unit_month(d):
+    """Fexa maintenance per active unit-month by template (types without miles/hours)."""
+    g = collections.defaultdict(lambda: {'ch': [], 'all': []})
+    for a in d['assets']:
+        if not a['t'] or a['t'] == 'Sub / rental unit': continue
+        am = sum(a['act'])
+        if am <= 0: continue
+        rec = (sum(a['maint']), am)
+        g[a['t']]['all'].append(rec)
+        if a['r'] and a['s'] not in EX: g[a['t']]['ch'].append(rec)
+    out = {}
+    for t, o in g.items():
+        row = {}
+        for k, v in o.items():
+            if not v: row[k] = None; continue
+            M = sum(x[0] for x in v); A = sum(x[1] for x in v)
+            row[k] = dict(units=len(v), maint=round(M, 2), am=A, rate=round(M / A, 2), mean=round(sum(x[0] / x[1] for x in v) / len(v), 2))
+        out[t] = row
+    (DATA / 'unitmonth.json').write_text(json.dumps(out, separators=(',', ':')))
+
+
+def tractor_units(d):
+    """Per-unit tractor data, so planned replacements can drop specific units from the averages."""
+    out = []
+    for a in d['assets']:
+        if a['t'] not in ('Tractor TA', 'Tractor SA'): continue
+        arr = a['mi']; use = sum(arr)
+        ok = use > 0 and not any(a['act'][i] and arr[i] <= 0 for i in range(len(arr)))
+        out.append([a['id'], a['s'], round(sum(a['maint']), 2), round(use, 1), sum(a['act']), 1 if ok else 0, a['o'] or '', a['t']])
+    (DATA / 'tractor_units.json').write_text(json.dumps(out, separators=(',', ':')))
+
+
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        sys.exit(__doc__)
+    DATA.mkdir(exist_ok=True)
+    n = assets(sys.argv[1])
+    d = cpm(sys.argv[2])
+    maint_rates(d); unit_month(d); tractor_units(d)
+    print(f'{n} assets; CPM data built {d.get("built")}')
