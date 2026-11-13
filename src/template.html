@@ -290,7 +290,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 15,
+  rev: 16,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -302,7 +302,7 @@ const DEFAULTS = {
   excluded: ["353","355","355CD","356","359","489","450","950"],
   classes: {
     "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
-    "TMFL":               {life:84,  resid:20, reg:0,   gps:false, lytx:false, maint:318, variable:false},
+    "TMFL":               {life:96,  resid:20, reg:0,   gps:false, lytx:false, maint:318, variable:false},
     "Truck":              {life:96,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Tractor":            {life:120, resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Light-Duty Vehicle": {life:72,  resid:20, reg:0.2, gps:true,  lytx:true,  maint:100, variable:false},
@@ -552,7 +552,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<13){ S.classes.Truck.life=96; S.classes.Tractor.life=120; }
   if(!o.rev || o.rev<14){ S.maintSource=structuredClone(DEFAULTS.maintSource); }
   if(!o.rev || o.rev<15){ S.amTemplate=Object.assign({}, S.amTemplate, {"24' Van Body":4625,"16' Van Body":4625}); }
-  S.rev=15;
+  if(!o.rev || o.rev<16){ S.classes.TMFL.life=96; S.classes.Forklift.life=96; S.classes.Trailer.life=180; S.classes["Specialty Trailer"].life=180; }
+  S.rev=16;
 }
 function changed(){
   persistLocal(); renderAll();
