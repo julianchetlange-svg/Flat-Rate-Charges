@@ -290,14 +290,15 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 13,
+  rev: 14,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
   typeGroups: {"24' TA Flatbed":"24' TA Flatbed & Slide","24' TA Slide Flatbed":"24' TA Flatbed & Slide",
                "Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way","4-Way Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way",
                "Tractor TA":"Tractor (TA & SA)","Tractor SA":"Tractor (TA & SA)"},
-  lockedMaint: {"Pickup": 0.14, "Car": 0.09},   // asset type -> locked $/mile or $/hour (no full maintenance data)   // simple = average of unit $/mi-hr rates; weighted = total spend ÷ total usage
+  lockedMaint: {"Pickup": 0.14, "Car": 0.09},
+  maintSource: {"16' Van Body": "24' Van Body"},   // type -> borrow this type's $/mile (major-repair anomaly on the only 16' unit)   // asset type -> locked $/mile or $/hour (no full maintenance data)   // simple = average of unit $/mi-hr rates; weighted = total spend ÷ total usage
   excluded: ["353","355","355CD","356","359","489","450","950"],
   classes: {
     "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
@@ -416,10 +417,17 @@ function usageMaintMiHr(t){
   const m = maintFor(t); if(!m) return null;
   const useCh = m.ch.units>0, b = useCh?m.ch:m.all;
   const locked = (S.lockedMaint||{})[t];
-  const rate = locked!=null ? locked : (S.maintAvg==="weighted" ? b.rate : b.mean);
-  const mo = b.mo!=null ? b.mo : (locked!=null ? m.moAny : null);   // locked types: miles from any months with readings
+  const src = borrowed(t);
+  const rate = locked!=null ? locked : src ? src.rate : (S.maintAvg==="weighted" ? b.rate : b.mean);
+  const mo = b.mo!=null ? b.mo : ((locked!=null || src) ? m.moAny : null);   // locked/borrowed types: miles from any months with readings
   if(rate==null || mo==null) return null;
-  return {rate, mo, meas:m.meas, basis:useCh?"charge":"all", n:b.units, amount: Math.round(rate*mo*100)/100, std:m.std, locked:locked!=null};
+  return {rate, mo, meas:m.meas, basis:useCh?"charge":"all", n:b.units, amount: Math.round(rate*mo*100)/100, std:m.std, locked:locked!=null, borrowedFrom: src?src.from:null};
+}
+function borrowed(t){
+  const f=(S.maintSource||{})[t]; if(!f) return null;
+  const m=maintFor(rt(f)===f?f:rt(f)); if(!m) return null;
+  const b=m.ch.units>0?m.ch:m.all; const rate=S.maintAvg==="weighted"?b.rate:b.mean;
+  return rate==null?null:{rate, from:f};
 }
 const COMP = ["base","adval","reg","gps","lytx","maint"];
 function compute(){
@@ -542,7 +550,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<11){ S.amTemplate=Object.assign({}, S.amTemplate, {"24' TA Flatbed":7650,"24' TA Slide Flatbed":7650}); }
   if(!o.rev || o.rev<12){ S.amTemplate=Object.assign({}, S.amTemplate, {"Tractor TA":3825,"Tractor SA":3825}); }
   if(!o.rev || o.rev<13){ S.classes.Truck.life=96; S.classes.Tractor.life=120; }
-  S.rev=13;
+  if(!o.rev || o.rev<14){ S.maintSource=structuredClone(DEFAULTS.maintSource); }
+  S.rev=14;
 }
 function changed(){
   persistLocal(); renderAll();
@@ -655,7 +664,7 @@ function renderTypes(){
     {k:"reg",h:"Reg.",num:1,f:t=>money(t.reg)},
     {k:"gps",h:"GPS",num:1,f:t=>money(t.gps)},
     {k:"lytx",h:"Lytx",num:1,f:t=>money(t.lytx)},
-    {k:"maint",h:"Maintenance",num:1,f:t=>money(t.maint)+(t.um?(t.um.meas==="unit-month"?`<div class="muted small">Fexa avg / unit-month${t.um.basis==="all"?" (all locs)":""}</div>`:`<div class="muted small">$${fmt(t.um.rate,t.um.meas==="mile"?3:2)}/${t.um.meas==="mile"?"mi":"hr"} × ${fmt(t.um.mo,0)}${t.um.locked?" (locked)":""}</div>`):'<div class="muted small">fixed</div>')},
+    {k:"maint",h:"Maintenance",num:1,f:t=>money(t.maint)+(t.um?(t.um.meas==="unit-month"?`<div class="muted small">Fexa avg / unit-month${t.um.basis==="all"?" (all locs)":""}</div>`:`<div class="muted small">$${fmt(t.um.rate,t.um.meas==="mile"?3:2)}/${t.um.meas==="mile"?"mi":"hr"} × ${fmt(t.um.mo,0)}${t.um.locked?" (locked)":""}${t.um.borrowedFrom?` (${esc(t.um.borrowedFrom)} rate)`:""}</div>`):'<div class="muted small">fixed</div>')},
     {k:"rate",h:"Monthly rate",num:1,f:t=>`<b>${t.n?money(t.rate):'<span class="pill bad">no data</span>'}</b>`+(t.cls==="Unassigned"?' <span class="pill bad">no class</span>':"")},
     {k:"annual",h:"Annual",num:1,f:t=>money(t.rate*12,0),sv:t=>t.rate},
     {k:"min",h:"Indiv. low",num:1,f:t=>money(t.min)},
@@ -670,13 +679,13 @@ function maintRows(){
     const T = CALC.TYPE[m.t];
     const units = T?T.units:0;
     const cls = clsOf(m.t); const C=S.classes[cls]||{};
-    const lk = (S.lockedMaint||{})[m.t];
-    const rUsed = lk!=null ? lk : (S.maintAvg==="weighted" ? b.rate : b.mean);
-    const moU = b.mo!=null ? b.mo : (lk!=null ? m.moAny : null);
+    const lk = (S.lockedMaint||{})[m.t]; const bw = borrowed(m.t);
+    const rUsed = lk!=null ? lk : bw ? bw.rate : (S.maintAvg==="weighted" ? b.rate : b.mean);
+    const moU = b.mo!=null ? b.mo : ((lk!=null||bw) ? m.moAny : null);
     const implied = (rUsed!=null && moU!=null) ? Math.round(rUsed*moU*100)/100 : null;
     const current = C.maint??null;
     return {t:m.t, cls, meas:m.meas, basis:useCh?"charge":"all", units, n:b.units, maint:b.maint, use:b.use, rate:rUsed, wtd:b.rate, mean:b.mean, rateAll:(S.maintAvg==="weighted"?m.all.rate:m.all.mean), med:b.med, mo:moU, used: USAGE_CLASSES.has(cls) && implied!=null,
-      implied, current, currentLabel:"fixed", diff: (implied!=null&&current!=null)? implied-current : null, std:m.std, he:m.he, locked: lk!=null};
+      implied, current, currentLabel:"fixed", diff: (implied!=null&&current!=null)? implied-current : null, std:m.std, he:m.he, locked: lk!=null, borrowedFrom: bw?bw.from:null};
   });
 }
 function renderMaint(){
@@ -690,7 +699,7 @@ function renderMaint(){
     {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
     {k:"maint",h:"YTD maint.",num:1,f:r=>money(r.maint,0)},
     {k:"use",h:"YTD miles / hours",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
-    {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")},
+    {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")+(r.borrowedFrom?` <span class="pill info" title="Uses the ${esc(r.borrowedFrom)} rate">from ${esc(r.borrowedFrom)}</span>`:"")},
     {k:"mean",h:"Simple avg.",num:1,f:r=>r.mean==null?"—":"$"+fmt(r.mean,r.meas==="mile"?3:2)},
     {k:"wtd",h:"Weighted",num:1,f:r=>r.wtd==null?"—":"$"+fmt(r.wtd,r.meas==="mile"?3:2)},
     {k:"med",h:"Median unit rate",num:1,f:r=>r.med==null?"—":"$"+fmt(r.med,r.meas==="mile"?3:2)},
@@ -901,7 +910,7 @@ $("btnExport").onclick = async ()=>{
     "Charged":r.counted?"Y":"N","Flags":r.flags.map(f=>f[0]).join("; ")});
   const typeRows = Object.values(CALC.TYPE).filter(t=>t.units>0).sort((a,b)=>CLASS_ORDER.indexOf(a.cls)-CLASS_ORDER.indexOf(b.cls)||a.template.localeCompare(b.template))
     .map(t=>({"Asset Type":t.template,"Includes Templates":t.templates.join(" + "),"Rate Class":t.cls,"Charge Units":t.units,"Units in Average":t.n,"Units w/o Cost":t.unpriced,"Avg Delivered Cost":r2(t.delivered),
-      "Base Rate":t.base,"Ad Valorem":t.adval,"Registration":t.reg,"GPS":t.gps,"Lytx":t.lytx,"Maintenance":t.maint,"Maint Basis":t.um?(t.um.meas==="unit-month"?"Fexa avg per unit-month":`$${t.um.meas==="mile"?t.um.rate.toFixed(3)+"/mi":t.um.rate.toFixed(2)+"/hr"} × ${t.um.mo} ${t.um.meas==="mile"?"mi":"hr"}/mo`+(t.um.locked?" (locked)":"")):"Fixed class amount","Monthly Rate":r2(t.rate),"Annual Rate":r2(t.rate*12),
+      "Base Rate":t.base,"Ad Valorem":t.adval,"Registration":t.reg,"GPS":t.gps,"Lytx":t.lytx,"Maintenance":t.maint,"Maint Basis":t.um?(t.um.meas==="unit-month"?"Fexa avg per unit-month":`$${t.um.meas==="mile"?t.um.rate.toFixed(3)+"/mi":t.um.rate.toFixed(2)+"/hr"} × ${t.um.mo} ${t.um.meas==="mile"?"mi":"hr"}/mo`+(t.um.locked?" (locked)":"")+(t.um.borrowedFrom?` (${t.um.borrowedFrom} rate)`:"")):"Fixed class amount","Monthly Rate":r2(t.rate),"Annual Rate":r2(t.rate*12),
       "Indiv. Low":r2(t.min),"Indiv. High":r2(t.max),"Monthly × Units":r2(t.rate*t.units)}));
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
