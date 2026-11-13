@@ -290,7 +290,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 11,
+  rev: 12,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -326,7 +326,7 @@ const DEFAULTS = {
   },
   milesBasis: "monthly", milesMonths: 10,
   miles: {},           // store -> number (as entered)
-  amTemplate: {"24' TA Flatbed":7650,"24' TA Slide Flatbed":7650,"20' Slide Flatbed":3825,"12' Slide Flatbed":3825,"24' Van Body":3825,"16' Van Body":3825,"16' Conveyor":3825,"24' Conveyor":3825},   // template -> aftermarket amount (graphic wrap $3,825 on all trucks; + TMFL kit $3,825 on 24' TA trucks = $7,650)
+  amTemplate: {"24' TA Flatbed":7650,"24' TA Slide Flatbed":7650,"20' Slide Flatbed":3825,"12' Slide Flatbed":3825,"24' Van Body":3825,"16' Van Body":3825,"16' Conveyor":3825,"24' Conveyor":3825,"Tractor TA":3825,"Tractor SA":3825},   // template -> aftermarket amount (graphic wrap $3,825 on all trucks and tractors; + TMFL kit $3,825 on 24' TA trucks = $7,650)
   amAsset: {"486002":26000,"532004":26000,"532014":26000,"532023":26000,"534001":26000,"534002":26000,"908790":26000,"480004":26000,"491236":26000,"804328":26000,"954355":26000,"997832":26000,"266318":26000,"480002":26000,"480001":26000,"480010":26000,"531002":26000,"531011":26000,"532009":26000,"532010":26000,"532011":26000,"532012":26000,"532013":26000,"534003":26000,"534004":26000,"534005":26000,"534006":26000,"483005":26000,"480015":26000,"480011":26000,"480017":26000,"480000":26000,"480005":26000,"480007":26000,"480009":26000,"480012":26000,"480013":26000,"480014":26000,"480016":26000,"483001":26000,"483002":26000,"483003":26000,"483004":26000,"483006":26000,"530002":26000,"531001":26000,"531003":26000,"531004":26000,"531006":26000,"531007":26000,"531008":26000,"531012":26000,"532001":26000,"532002":26000,"532003":26000,"532005":26000,"532006":26000,"532007":26000,"532008":26000,"532015":26000,"532016":26000,"533001":26000,"533002":26000,"533003":26000,"533004":26000,"533005":26000,"533006":26000,"533007":26000,"533008":26000,"533009":26000,"533010":26000,"533011":26000,"533012":26000,"531010":12000,"532018":12000,"532019":12000,"532020":12000,"532021":12000,"532022":12000},   // asset -> aftermarket amount (rolling tarps on DC flatbed trailers $26,000 avg; graphic wraps on 450 van trailers $12,000 avg)
   costOverride: {}     // asset -> amount
 };
@@ -540,7 +540,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<9){ S.amAsset=Object.assign({}, DEFAULTS.amAsset, o.amAsset||{}); }
   if(!o.rev || o.rev<10){ S.amTemplate=Object.assign({}, DEFAULTS.amTemplate, o.amTemplate||{}); }
   if(!o.rev || o.rev<11){ S.amTemplate=Object.assign({}, S.amTemplate, {"24' TA Flatbed":7650,"24' TA Slide Flatbed":7650}); }
-  S.rev=11;
+  if(!o.rev || o.rev<12){ S.amTemplate=Object.assign({}, S.amTemplate, {"Tractor TA":3825,"Tractor SA":3825}); }
+  S.rev=12;
 }
 function changed(){
   persistLocal(); renderAll();
