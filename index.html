@@ -747,7 +747,7 @@ function renderMaint(){
 }
 function computeBacktest(){
   const M = USAGE.months, nM = M.length, thru = ACCT ? M.indexOf(ACCT.through) : -1;
-  const byMonth = M.map(()=>({units:0,fixed:0,mUse:0,mFlat:0,filled:0,total:0}));
+  const byMonth = M.map(()=>({units:0,fixed:0,mUse:0,mFlat:0,filled:0,total:0,totalAcct:0}));
   const byStore = {}, unpriced = [], detail = [];
   const status = {}; ASSETS.forEach(a=>status[a.asset]=a.status);
   USAGE.units.forEach(([id,store,tmpl,act,use,disposed])=>{
@@ -767,6 +767,7 @@ function computeBacktest(){
       else maint = T.maint||0;
       const tot = fixed+maint, b = byMonth[i];
       b.units++; b.fixed+=fixed; if(um) b.mUse+=maint; else b.mFlat+=maint; if(filled&&um) b.filled++; b.total+=tot;
+      if(ACCT && ACCT.alloc[store]) b.totalAcct+=tot;
       st.months[i]+=tot; st.units.add(id);
       detail.push([M[i],store,STORE_NAMES[store]||"",id,tmpl,rtype,disposed?"Disposed in 2026":"",r2x(fixed),um?um.meas:"flat",u==null?null:Math.round(u*10)/10,filled&&um?"Y":"",um?um.rate:null,r2x(maint),r2x(tot)]);
     }
@@ -795,19 +796,20 @@ function renderBacktest(){
     ["New vs actual", money(newJS-actJS,0), "Old vs actual: "+money(oldJS-actJS,0)],
     ["New rates, Jan–"+B.M[B.M.length-1]+" (all stores)", money(sum(B.stores,"ytd"),0), `incl. ${offices.length} office/other locations: ${money(sum(offices,"ytd"),0)}`]
   ].map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="n">${k[2]}</div></div>`).join("");
-  const mrows = B.M.map((m,i)=>({m, ...B.byMonth[i], old:B.oldByMonth[i], diff: i<=th && B.oldByMonth[i]!=null ? B.byMonth[i].total-B.oldByMonth[i] : null}));
-  const tot={m:"Total"}; ["units","fixed","mUse","mFlat","filled","total"].forEach(k=>tot[k]=mrows.reduce((x,r)=>x+r[k],0));
-  tot.old = mrows.reduce((x,r)=>x+(r.old||0),0); tot.diff = mrows.slice(0,th+1).reduce((x,r)=>x+r.total,0)-mrows.slice(0,th+1).reduce((x,r)=>x+(r.old||0),0);
+  const mrows = B.M.map((m,i)=>({m, ...B.byMonth[i], old:B.oldByMonth[i], diff: i<=th && B.oldByMonth[i]!=null ? B.byMonth[i].totalAcct-B.oldByMonth[i] : null}));
+  const tot={m:"Total"}; ["units","fixed","mUse","mFlat","filled","total","totalAcct"].forEach(k=>tot[k]=mrows.reduce((x,r)=>x+r[k],0));
+  tot.old = mrows.reduce((x,r)=>x+(r.old||0),0); tot.diff = mrows.slice(0,th+1).reduce((x,r)=>x+r.totalAcct,0)-mrows.slice(0,th+1).reduce((x,r)=>x+(r.old||0),0);
   renderTable("btMonth",[
     {k:"m",h:"Month",nosort:1},{k:"units",h:"Unit-months",num:1,nosort:1,f:r=>fmt(r.units,0)},
     {k:"fixed",h:"Fixed (base + fees)",num:1,nosort:1,f:r=>money(r.fixed,0)},
     {k:"mUse",h:"Maint. – miles/hours",num:1,nosort:1,f:r=>money(r.mUse,0)},
     {k:"mFlat",h:"Maint. – flat monthly",num:1,nosort:1,f:r=>money(r.mFlat,0)},
-    {k:"total",h:"New rate total",num:1,nosort:1,f:r=>`<b>${money(r.total,0)}</b>`},
+    {k:"total",h:"New rate total (all locations)",num:1,nosort:1,f:r=>`<b>${money(r.total,0)}</b>`},
+    {k:"totalAcct",h:"New rate, accounting's stores",num:1,nosort:1,f:r=>money(r.totalAcct,0)},
     {k:"old",h:"Old flat rate billed",num:1,nosort:1,f:r=>r.m==="Total"?money(r.old,0):(r.old?money(r.old,0):'<span class="muted">not yet</span>')},
     {k:"diff",h:"New − old",num:1,nosort:1,f:r=>r.diff==null?"—":`<span style="color:${r.diff>0?"var(--bad)":"var(--ok)"}">${money(r.diff,0)}</span>`},
     {k:"filled",h:"Unit-months w/o reading (filled)",num:1,nosort:1,f:r=>fmt(r.filled,0)}
-  ], mrows, {total:Object.fromEntries(Object.entries({m:"Total (old/diff Jan–"+B.M[th]+")",units:fmt(tot.units,0),fixed:money(tot.fixed,0),mUse:money(tot.mUse,0),mFlat:money(tot.mFlat,0),total:money(tot.total,0),old:money(tot.old,0),diff:money(tot.diff,0),filled:fmt(tot.filled,0)})), rerender:renderBacktest});
+  ], mrows, {total:Object.fromEntries(Object.entries({m:"Total (old/diff Jan–"+B.M[th]+")",units:fmt(tot.units,0),fixed:money(tot.fixed,0),mUse:money(tot.mUse,0),mFlat:money(tot.mFlat,0),total:money(tot.total,0),totalAcct:money(tot.totalAcct,0),old:money(tot.old,0),diff:money(tot.diff,0),filled:fmt(tot.filled,0)})), rerender:renderBacktest});
   const q=$("btSearch").value.trim().toLowerCase();
   const srows = B.stores.filter(s=>!q||s.store.toLowerCase().includes(q)||s.name.toLowerCase().includes(q));
   const stot={store:"Total",units:fmt(sum(srows,"units"),0),newT:money(sum(srows,"newT"),0),oldT:money(sum(srows.filter(s=>s.oldT!=null),"oldT"),0),
@@ -1040,8 +1042,8 @@ $("btnExport").onclick = async ()=>{
   XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
   const BT = computeBacktest(), th=BT.thru;
   const wsBM = XLSX.utils.json_to_sheet(BT.M.map((m,i)=>({"Month":m+" 2026","Unit-Months":BT.byMonth[i].units,"Fixed (Base+Fees)":r2(BT.byMonth[i].fixed),"Maint - Miles/Hours":r2(BT.byMonth[i].mUse),
-    "Maint - Flat Monthly":r2(BT.byMonth[i].mFlat),"New Rate Total":r2(BT.byMonth[i].total),"Old Flat Rate Billed":i<=th?r2(BT.oldByMonth[i]):null,"New - Old":i<=th?r2(BT.byMonth[i].total-BT.oldByMonth[i]):null,"Unit-Months Filled":BT.byMonth[i].filled})));
-  wsBM["!cols"]=[{wch:10},...Array(8).fill({wch:16})]; XLSX.utils.book_append_sheet(wb, wsBM, "Back-test by Month");
+    "Maint - Flat Monthly":r2(BT.byMonth[i].mFlat),"New Rate Total (All Locations)":r2(BT.byMonth[i].total),"New Rate - Accounting's Stores":r2(BT.byMonth[i].totalAcct),"Old Flat Rate Billed":i<=th?r2(BT.oldByMonth[i]):null,"New - Old":i<=th?r2(BT.byMonth[i].totalAcct-BT.oldByMonth[i]):null,"Unit-Months Filled":BT.byMonth[i].filled})));
+  wsBM["!cols"]=[{wch:10},...Array(9).fill({wch:16})]; XLSX.utils.book_append_sheet(wb, wsBM, "Back-test by Month");
   const wsBS = XLSX.utils.json_to_sheet(BT.stores.slice().sort((a,b)=>storeSort(a.store,b.store)).map(s=>{const o={"Store":s.store,"Store Name":s.name,"Units Billed":s.units};
     BT.M.forEach((m,i)=>o["New "+m]=r2(s.months[i])); Object.assign(o,{["New Jan-"+BT.M[th]]:r2(s.newT),["Old Flat Rate Jan-"+BT.M[th]]:r2(s.oldT),"New - Old":r2(s.diff),"% Change":s.pct==null?null:Math.round(s.pct*1000)/1000,
     ["Actual Expense Jan-"+BT.M[th]]:r2(s.act),"New - Actual":r2(s.vsAct),["New Jan-"+BT.M[BT.M.length-1]]:r2(s.ytd)}); return o;}));
