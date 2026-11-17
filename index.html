@@ -310,12 +310,12 @@ const ASOF = "2026-11-13";
 const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","Trailer","Specialty Trailer","Cart / Sweeper","Unassigned"];
 const DEFAULTS = {
   year: 2026,
-  fundingRate: 7,
+  fundingRate: 6,
   adValPct: 0.8,
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 17,
+  rev: 18,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -587,7 +587,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<15){ S.amTemplate=Object.assign({}, S.amTemplate, {"24' Van Body":4625,"16' Van Body":4625}); }
   if(!o.rev || o.rev<16){ S.classes.TMFL.life=96; S.classes.Forklift.life=96; S.classes.Trailer.life=180; S.classes["Specialty Trailer"].life=180; }
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
-  S.rev=17;
+  if(!o.rev || o.rev<18){ S.fundingRate=6; }
+  S.rev=18;
 }
 function changed(){
   persistLocal(); renderAll();

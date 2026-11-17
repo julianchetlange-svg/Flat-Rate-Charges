@@ -28,7 +28,7 @@ Individual rate per unit:
 - Locked: pickups $0.14/mile, cars $0.09/mile (incomplete Fexa data).
 - Units with missing telematics/hour months are left out of the per-mile/hour rates.
 
-**2026 assumptions:** funding rate 7.00%; life/residual – forklift 96 mo/15%, TMFL 96/20%, light-duty 72/20%, truck 96/15%, tractor 120/15%, trailer 180/5%, specialty trailer 180/0%.
+**2026 assumptions:** funding rate 6.00%; life/residual – forklift 96 mo/15%, TMFL 96/20%, light-duty 72/20%, truck 96/15%, tractor 120/15%, trailer 180/5%, specialty trailer 180/0%.
 
 **Aftermarket:** wraps ($3,825 trucks/tractors, $4,625 van bodies) and TMFL kits ($3,825 on 24' TA trucks) are added to delivered cost only for units **36 months or older**; newer units (and planned 2027 units) already carry an all-in delivered cost.
 
