@@ -61,3 +61,14 @@ python scripts/build_data.py Current_Assets.xlsx path/to/Fleet-CMP-HOUR-Analysis
 python scripts/build_usage.py path/to/Fleet-CMP-HOUR-Analysis/index.html Sep26_Finals_YTD_Total_Vehicle_Expenses_Ops.xlsx
 python scripts/build_html.py
 ```
+
+## 2026 old billing (back-test)
+
+`data/old_billing_2026.json` holds what the 2026 monthly flat-rate files billed (base by asset class, $0.42 per store mile, $36 Lytx cameras, damages) by store and month, plus base charge by asset. Rebuild it from the monthly files:
+
+```
+python scripts/build_old_billing.py Flat_Rate_January_2026.xlsx ... Flat_Rate_October_2026.xlsx
+python scripts/build_html.py
+```
+
+The back-test compares new rates with old billing excluding damages and excluded locations (450 Millworks was billed Jan–Aug). Per-asset mileage and camera fees are estimated from Geotab miles because the old method billed them by store.

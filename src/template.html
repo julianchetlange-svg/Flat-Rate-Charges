@@ -158,13 +158,17 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <section class="view" id="v-backtest">
     <div class="panel" style="margin-bottom:12px">
       <h2>2026 back-test: new rates on Jan–Oct 2026 usage vs. the old flat rate</h2>
-      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + ad valorem + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old flat rate = accounting's allocation journal entries; actual = accounting's total vehicle expense (both through September). Fuel is outside both.</p>
+      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + ad valorem + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
     </div>
     <div class="kpis" id="btKpis"></div>
-    <div class="panel"><h2>By month</h2><p class="help">"2026 charges incl. HQ" are the monthly flat-rate totals as billed in 2026 (stores plus HQ assets), compared with the new rates on all locations. "Old flat rate billed" is accounting's store allocation JEs (Jan–Sep), compared with the new rates on those same stores.</p><div class="tablewrap" style="max-height:none"><table id="btMonth"></table></div></div>
-    <div class="panel"><h2>By store (Jan–Sep comparison)</h2>
-      <div class="toolbar"><input type="search" id="btSearch" placeholder="Search store…"><span class="muted small" id="btNote"></span></div>
+    <div class="panel"><h2>By month: new rates vs. what 2026 billed</h2><p class="help">Old = the monthly flat-rate files sent to accounting: base flat rate by asset class, $0.42 per store mile, and $36 per Lytx camera. Damages and the excluded sites (450 Millworks was billed Jan–Aug) are shown but left out of the comparison. New rates cover every flat-rate location, including regions and offices.</p><div class="tablewrap" style="max-height:none"><table id="btMonth"></table></div></div>
+    <div class="panel"><h2>By asset type, Jan–Oct</h2><p class="help">Old base is billed by asset. The $0.42/mile and camera fees were billed by store, so they are estimated for each unit here: $0.42 × the unit's Geotab miles, and $36 for each month a road unit was billed. Totals tie to the billed amounts within a few percent (see the miles check).</p><div class="tablewrap"><table id="btType"></table></div></div>
+    <div class="panel"><h2>Miles check: billed vs. Geotab</h2><p class="help">Miles billed at $0.42 against Geotab miles for mile-rated units at the same locations. Geotab miles follow each unit's current store, so a unit that moved during the year shifts miles between stores, but totals are comparable.</p><div class="tablewrap" style="max-height:none"><table id="btMiles"></table></div></div>
+    <div class="panel"><h2>By store</h2><p class="help">"New, 2026 billing location" puts each unit's new charge where 2026 billed it. Units billed to a region office (761–768) sit at a store in the asset file, so "current location" moves them to that store. The accounting columns are the Jan–Sep allocation JEs and actual expense.</p>
+      <div class="toolbar"><input type="search" id="btSearch" placeholder="Search store or asset…"><span class="muted small" id="btNote"></span></div>
       <div class="tablewrap"><table id="btStore"></table></div></div>
+    <div class="panel"><h2>By asset, Jan–Oct</h2><p class="help muted small" id="btAssetNote"></p><div class="tablewrap"><table id="btAsset"></table></div></div>
+    <div class="panel"><h2>Against accounting, Jan–Sep</h2><p class="help">The 84 stores in accounting's allocation: new rates vs. the allocation JEs and actual expense (depreciation + supplier invoices).</p><div class="kpis" id="btKpis2" style="margin:0"></div></div>
   </section>
 
   <!-- ASSETS -->
@@ -301,6 +305,7 @@ const RAW = __ASSETS__;
 const MAINT = __MAINT__;
 const USAGE = __USAGE__;        // Jan–Oct 2026 miles/hours by unit (CPM analysis)
 const ACCT = __ACCT__;          // accounting: old flat-rate allocation by store/month + actual expense YTD
+const OLD = __OLD__;            // 2026 monthly flat-rate files: base / $0.42 mileage / camera / damages by store, base by asset
 const COST_EST = __COSTEST__;   // placeholder costs for assets missing Asset Original Value
 const UNITMO = __UNITMO__;
 const TUNITS = __TUNITS__.map(u=>({id:u[0],s:u[1],m:u[2],use:u[3],am:u[4],ok:!!u[5],o:u[6],t:u[7]}));
@@ -751,7 +756,8 @@ function renderMaint(){
 function computeBacktest(){
   const M = USAGE.months, nM = M.length, thru = ACCT ? M.indexOf(ACCT.through) : -1;
   const byMonth = M.map(()=>({units:0,fixed:0,mUse:0,mFlat:0,filled:0,total:0,totalAcct:0}));
-  const byStore = {}, unpriced = [], detail = [];
+  const byStore = {}, unpriced = [], detail = [], byAsset = {};
+  const geo = {};   // Geotab miles actually read, by store/month (mile-rated units)
   const status = {}; ASSETS.forEach(a=>status[a.asset]=a.status);
   USAGE.units.forEach(([id,store,tmpl,act,use,disposed])=>{
     if(isExcluded(store)) return;
@@ -763,6 +769,7 @@ function computeBacktest(){
     let avg=null;
     if(um && use){ const v=use.filter((x,i)=>act[i]==="1"&&x>0); if(v.length) avg=v.reduce((a,b)=>a+b,0)/v.length; }
     const st = byStore[store] || (byStore[store]={store,months:M.map(()=>0),units:new Set()});
+    const ua = byAsset[id] = {id,store,tmpl,rtype,disposed,months:M.map(()=>0),fixed:0,maint:0,miles:M.map(()=>0),lytx:(T.lytx||0)>0};
     for(let i=0;i<nM;i++){
       if(act[i]!=="1") continue;
       let maint=0, u=null, filled=false;
@@ -772,6 +779,8 @@ function computeBacktest(){
       b.units++; b.fixed+=fixed; if(um) b.mUse+=maint; else b.mFlat+=maint; if(filled&&um) b.filled++; b.total+=tot;
       if(ACCT && ACCT.alloc[store]) b.totalAcct+=tot;
       st.months[i]+=tot; st.units.add(id);
+      ua.months[i]+=tot; ua.fixed+=fixed; ua.maint+=maint;
+      if(um && um.meas==="mile" && use && use[i]>0){ ua.miles[i]=use[i]; (geo[store]||(geo[store]=M.map(()=>0)))[i]+=use[i]; }
       detail.push([M[i],store,STORE_NAMES[store]||"",id,tmpl,rtype,disposed?"Disposed in 2026":"",r2x(fixed),um?um.meas:"flat",u==null?null:Math.round(u*10)/10,filled&&um?"Y":"",um?um.rate:null,r2x(maint),r2x(tot)]);
     }
   });
@@ -783,61 +792,167 @@ function computeBacktest(){
   });
   const oldByMonth = M.map((_,i)=> ACCT ? Object.values(ACCT.alloc).reduce((x,v)=>x+(v[i]||0),0) : null);
   const oldAll = M.map((_,i)=> ACCT && ACCT.totalInclHQ ? (ACCT.totalInclHQ[i]??null) : null);
-  return {M, thru, byMonth, stores, unpriced, detail, oldByMonth, oldAll};
+  const O = computeOld(M, byStore, byAsset, geo, stores);
+  return {M, thru, byMonth, stores, unpriced, detail, oldByMonth, oldAll, byAsset, geo, ...O};
+}
+/* Old 2026 billing (monthly flat-rate files) lined up against the new rates. Damages and excluded locations are kept out of the comparison. */
+function computeOld(M, byStore, byAsset, geo, stores){
+  if(!OLD) return {old:null};
+  const nM=M.length, oi=M.map(m=>OLD.months.indexOf(m)), z=()=>M.map(()=>0);
+  const fr={base:z(),variable:z(),camera:z(),damages:z(),miles:z(),units:z()}, ex={total:z(),stores:{}}, total=M.map((_,i)=>oi[i]>=0?OLD.totals[oi[i]]:null);
+  const ostore={};
+  Object.entries(OLD.stores).forEach(([s,v])=>{
+    const g=k=>M.map((_,i)=>oi[i]>=0?(v[k][oi[i]]||0):0);
+    const o={base:g("base"),variable:g("variable"),camera:g("camera"),damages:g("damages"),miles:g("miles"),units:g("units")};
+    if(isExcluded(s)){ const t=M.map((_,i)=>o.base[i]+o.variable[i]+o.camera[i]+o.damages[i]); ex.stores[s]=t; t.forEach((x,i)=>ex.total[i]+=x); return; }
+    ostore[s]=o; Object.keys(fr).forEach(k=>o[k].forEach((x,i)=>fr[k][i]+=x));
+  });
+  const billed = M.map((_,i)=>fr.base[i]+fr.variable[i]+fr.camera[i]);
+  const sm=a=>a.reduce((x,y)=>x+y,0);
+  // store rows: add old-billed stores that have no unit in the new back-test
+  Object.keys(ostore).forEach(s=>{ if(!stores.find(x=>x.store===s)) stores.push({store:s,name:STORE_NAMES[s]||(ACCT&&ACCT.names[s])||"",units:0,newT:0,oldT:null,diff:null,pct:null,act:null,vsAct:null,oct:0,ytd:0,months:z()}); });
+  const geoAll=z();
+  stores.forEach(st=>{ const o=ostore[st.store], gm=geo[st.store]||z();
+    gm.forEach((x,i)=>geoAll[i]+=x);
+    st.oldB = o? sm(o.base)+sm(o.variable)+sm(o.camera) : null; st.oldDmg = o? sm(o.damages):0;
+    st.oldBase = o? sm(o.base):null; st.oldVar = o? sm(o.variable):null; st.oldCam = o? sm(o.camera):null;
+    st.diffB = st.oldB==null?null:st.ytd-st.oldB; st.pctB = st.oldB? st.diffB/st.oldB : null;
+    st.oldMi = o? sm(o.miles):null; st.geoMi = sm(gm); st.miDiff = st.oldMi==null?null:st.oldMi-st.geoMi; });
+  // assets: old base billed by asset (store at billing time), with an estimated share of the store's $0.42/mi and camera fee
+  const RATE=0.42, CAM=36, aOld={};
+  Object.entries(OLD.assets).forEach(([id,[s,cls,fn,ch]])=>{ const c=M.map((_,i)=>oi[i]>=0&&!isExcluded(s)?(ch[oi[i]]||0):0); if(sm(c)) aOld[id]={store:s,cls,fn,base:c}; });
+  const tmplOf={}; ASSETS.forEach(a=>tmplOf[a.asset]=a.template);
+  const assets=[...new Set([...Object.keys(byAsset),...Object.keys(aOld)])].map(id=>{
+    const n=byAsset[id], o=aOld[id];
+    const tmpl = n?n.tmpl:(tmplOf[id]||o.cls), rtype = n?n.rtype:(/^CREDIT/i.test(tmpl)?"Credits & adjustments":rt(tmpl));
+    const oldBase = o?sm(o.base):0, oldMo = o?o.base.filter(x=>x).length:0;
+    const estVar = n? sm(n.miles.map((x,i)=>o&&o.base[i]?x*RATE:0)) : 0, estCam = n&&n.lytx&&o? oldMo*CAM : 0;
+    const newT = n?sm(n.months):0, newMo = n?n.months.filter(x=>x).length:0;
+    return {id, store:n?n.store:o.store, oldStore:o?o.store:"", tmpl, rtype, oldMo, oldBase, estVar, estCam, oldEst:oldBase+estVar+estCam, newMo, newFixed:n?n.fixed:0, newMaint:n?n.maint:0, newT, diff:newT-(oldBase+estVar+estCam)};
+  });
+  const newB={}; assets.forEach(a=>{ const s=a.oldStore||a.store; newB[s]=(newB[s]||0)+a.newT; });
+  stores.forEach(st=>{ st.newB=newB[st.store]||0; st.diffB = st.oldB==null?null:st.newB-st.oldB; st.pctB = st.oldB? st.diffB/st.oldB : null; });
+  Object.keys(newB).forEach(s=>{ if(!stores.find(x=>x.store===s) && !isExcluded(s)) stores.push({store:s,name:STORE_NAMES[s]||"",units:0,newT:0,oldT:null,diff:null,act:null,vsAct:null,oct:0,ytd:0,months:z(),newB:newB[s],oldB:null,diffB:null,oldDmg:0,geoMi:0}); });
+  const types={}; assets.forEach(a=>{ const t=types[a.rtype]||(types[a.rtype]={rtype:a.rtype,cls:(CALC.TYPE[a.rtype]||{}).cls||"",units:new Set(),oldUnits:new Set(),oldMo:0,newMo:0,oldBase:0,estVar:0,estCam:0,oldEst:0,newFixed:0,newMaint:0,newT:0});
+    if(a.newMo) t.units.add(a.id); if(a.oldMo) t.oldUnits.add(a.id); ["oldMo","newMo","oldBase","estVar","estCam","oldEst","newFixed","newMaint","newT"].forEach(k=>t[k]+=a[k]); });
+  Object.values(types).forEach(t=>{ t.nNew=t.units.size; t.nOld=t.oldUnits.size; t.diff=t.newT-t.oldEst; t.pct=t.oldEst?t.diff/t.oldEst:null; });
+  return {old:{fr, billed, ex, total, geoAll, assets, types:Object.values(types), ostore}};
 }
 const r2x = v=> v==null?null:Math.round(v*100)/100;
 function renderBacktest(){
   const B = computeBacktest(); CALC.BT = B;
-  const th = B.thru, inAcct = B.stores.filter(s=>s.oldT!=null);
-  const sum=(arr,k)=>arr.reduce((x,s)=>x+(s[k]||0),0);
+  const th = B.thru, O = B.old, inAcct = B.stores.filter(s=>s.oldT!=null), L=B.M[B.M.length-1];
+  const sum=(arr,k)=>arr.reduce((x,s)=>x+(s[k]||0),0), sa=a=>a.reduce((x,y)=>x+(y||0),0);
+  const dcol=v=>v==null?"—":`<span style="color:${v>0?"var(--bad)":"var(--ok)"}">${money(v,0)}</span>`, pct=(a,b)=>b?((a-b)/b*100).toFixed(1)+"%":"—";
   const newJS = sum(inAcct,"newT"), oldJS = sum(inAcct,"oldT"), actJS = sum(inAcct.filter(s=>s.act!=null),"act");
-  const offices = B.stores.filter(s=>s.oldT==null);
-  const oldAllT = B.oldAll.reduce((x,v)=>x+(v||0),0), nAll = B.oldAll.filter(v=>v!=null).length, newAllT = B.byMonth.slice(0,nAll).reduce((x,b)=>x+b.total,0);
-  $("btKpis").innerHTML = (nAll ? [
-    ["New rates, all locations, Jan–"+B.M[nAll-1], money(newAllT,0), "Stores, offices and HQ"],
-    ["2026 charges incl. HQ, Jan–"+B.M[nAll-1], money(oldAllT,0), "As billed under the old flat rate"],
-    ["New vs 2026 charges", money(newAllT-oldAllT,0), (oldAllT?((newAllT-oldAllT)/oldAllT*100).toFixed(1):"0")+"% "+(newAllT>=oldAllT?"higher":"lower")]
-  ] : []).concat([
+  const newAll = B.byMonth.reduce((x,b)=>x+b.total,0);
+  const k1 = O ? [
+    ["New rates, Jan–"+L, money(newAll,0), "All flat-rate locations (stores, regions, offices)"],
+    ["Old flat rate billed, Jan–"+L, money(sa(O.billed),0), "Base + $0.42/mile + cameras; damages and excluded sites left out"],
+    ["New vs old", money(newAll-sa(O.billed),0), pct(newAll,sa(O.billed))+" "+(newAll>=sa(O.billed)?"higher":"lower")],
+    ["Damages billed, Jan–"+L, money(sa(O.fr.damages),0), "Separate line items under either method"],
+    ["Excluded sites billed, Jan–"+L, money(sa(O.ex.total),0), Object.entries(O.ex.stores).filter(([s,v])=>sa(v)).map(([s,v])=>s+" "+money(sa(v),0)).join(", ")+" (stopped Sep)"],
+    ["Total 2026 billed, Jan–"+L, money(sa(O.total),0), "Matches the monthly flat-rate files"]
+  ] : [];
+  const k2 = [
     ["New rates, Jan–"+B.M[th], money(newJS,0), `${inAcct.length} stores in accounting's list`],
-    ["Old flat rate billed, Jan–"+B.M[th], money(oldJS,0), "Accounting allocation JEs"],
-    ["New vs old", money(newJS-oldJS,0), (oldJS?((newJS-oldJS)/oldJS*100).toFixed(1):"0")+"% "+(newJS>=oldJS?"higher":"lower")],
+    ["Accounting allocation, Jan–"+B.M[th], money(oldJS,0), "Old flat rate JEs to those stores"],
     ["Actual expense, Jan–"+B.M[th], money(actJS,0), "Depreciation + supplier invoices"],
-    ["New vs actual", money(newJS-actJS,0), "Old vs actual: "+money(oldJS-actJS,0)],
-    ["New rates, Jan–"+B.M[B.M.length-1]+" (all stores)", money(sum(B.stores,"ytd"),0), `incl. ${offices.length} office/other locations: ${money(sum(offices,"ytd"),0)}`]
-  ]).map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="n">${k[2]}</div></div>`).join("");
-  const mrows = B.M.map((m,i)=>({m, ...B.byMonth[i], oldAll:B.oldAll[i], diffAll: B.oldAll[i]!=null ? B.byMonth[i].total-B.oldAll[i] : null, old:B.oldByMonth[i], diff: i<=th && B.oldByMonth[i]!=null ? B.byMonth[i].totalAcct-B.oldByMonth[i] : null}));
-  const tot={m:"Total"}; ["units","fixed","mUse","mFlat","filled","total","totalAcct"].forEach(k=>tot[k]=mrows.reduce((x,r)=>x+r[k],0));
-  tot.oldAll = mrows.reduce((x,r)=>x+(r.oldAll||0),0); tot.diffAll = mrows.reduce((x,r)=>x+(r.diffAll||0),0);
-  tot.old = mrows.reduce((x,r)=>x+(r.old||0),0); tot.diff = mrows.slice(0,th+1).reduce((x,r)=>x+r.totalAcct,0)-mrows.slice(0,th+1).reduce((x,r)=>x+(r.old||0),0);
+    ["New vs actual", money(newJS-actJS,0), "Old vs actual: "+money(oldJS-actJS,0)]
+  ];
+  const kp=a=>a.map(k=>`<div class="kpi"><div class="l">${k[0]}</div><div class="v">${k[1]}</div><div class="n">${k[2]}</div></div>`).join("");
+  $("btKpis").innerHTML = kp(k1); $("btKpis2").innerHTML = kp(k2);
+
+  // by month
+  const mrows = B.M.map((m,i)=>({m, ...B.byMonth[i], oBase:O?O.fr.base[i]:null, oVar:O?O.fr.variable[i]:null, oCam:O?O.fr.camera[i]:null, oB:O?O.billed[i]:null,
+    diffB:O?B.byMonth[i].total-O.billed[i]:null, dmg:O?O.fr.damages[i]:null, ex:O?O.ex.total[i]:null, tot2026:O?O.total[i]:null}));
+  const mt={}; ["units","fixed","mUse","mFlat","filled","total","oBase","oVar","oCam","oB","diffB","dmg","ex","tot2026"].forEach(k=>mt[k]=mrows.reduce((x,r)=>x+(r[k]||0),0));
+  const mf=(k,d)=>r=>r[k]==null?"—":money(r[k],d??0);
   renderTable("btMonth",[
     {k:"m",h:"Month",nosort:1},{k:"units",h:"Unit-months",num:1,nosort:1,f:r=>fmt(r.units,0)},
-    {k:"fixed",h:"Fixed (base + fees)",num:1,nosort:1,f:r=>money(r.fixed,0)},
-    {k:"mUse",h:"Maint. – miles/hours",num:1,nosort:1,f:r=>money(r.mUse,0)},
-    {k:"mFlat",h:"Maint. – flat monthly",num:1,nosort:1,f:r=>money(r.mFlat,0)},
-    {k:"total",h:"New rate total (all locations)",num:1,nosort:1,f:r=>`<b>${money(r.total,0)}</b>`},
-    {k:"oldAll",h:"2026 charges incl. HQ",num:1,nosort:1,f:r=>r.oldAll==null?"—":money(r.oldAll,0)},
-    {k:"diffAll",h:"New − 2026 (all)",num:1,nosort:1,f:r=>r.diffAll==null?"—":`<span style="color:${r.diffAll>0?"var(--bad)":"var(--ok)"}">${money(r.diffAll,0)}</span>`},
-    {k:"totalAcct",h:"New rate, accounting's stores",num:1,nosort:1,f:r=>money(r.totalAcct,0)},
-    {k:"old",h:"Old flat rate billed",num:1,nosort:1,f:r=>r.m==="Total"?money(r.old,0):(r.old?money(r.old,0):'<span class="muted">not yet</span>')},
-    {k:"diff",h:"New − old",num:1,nosort:1,f:r=>r.diff==null?"—":`<span style="color:${r.diff>0?"var(--bad)":"var(--ok)"}">${money(r.diff,0)}</span>`},
+    {k:"fixed",h:"New: fixed (base + fees)",num:1,nosort:1,f:mf("fixed")},
+    {k:"mUse",h:"New: maint. miles/hours",num:1,nosort:1,f:mf("mUse")},
+    {k:"mFlat",h:"New: maint. flat monthly",num:1,nosort:1,f:mf("mFlat")},
+    {k:"total",h:"New rate total",num:1,nosort:1,f:r=>`<b>${money(r.total,0)}</b>`},
+    {k:"oBase",h:"Old: base",num:1,nosort:1,f:mf("oBase")},
+    {k:"oVar",h:"Old: $0.42/mile",num:1,nosort:1,f:mf("oVar")},
+    {k:"oCam",h:"Old: cameras",num:1,nosort:1,f:mf("oCam")},
+    {k:"oB",h:"Old billed total",num:1,nosort:1,f:r=>r.oB==null?"—":`<b>${money(r.oB,0)}</b>`},
+    {k:"diffB",h:"New − old",num:1,nosort:1,f:r=>dcol(r.diffB)},
+    {k:"dmg",h:"Damages (not compared)",num:1,nosort:1,f:mf("dmg")},
+    {k:"ex",h:"Excluded sites (not compared)",num:1,nosort:1,f:mf("ex")},
+    {k:"tot2026",h:"2026 billed total",num:1,nosort:1,f:mf("tot2026")},
     {k:"filled",h:"Unit-months w/o reading (filled)",num:1,nosort:1,f:r=>fmt(r.filled,0)}
-  ], mrows, {total:Object.fromEntries(Object.entries({m:"Total (old/diff Jan–"+B.M[th]+")",units:fmt(tot.units,0),fixed:money(tot.fixed,0),mUse:money(tot.mUse,0),mFlat:money(tot.mFlat,0),total:money(tot.total,0),oldAll:money(tot.oldAll,0),diffAll:money(tot.diffAll,0),totalAcct:money(tot.totalAcct,0),old:money(tot.old,0),diff:money(tot.diff,0),filled:fmt(tot.filled,0)})), rerender:renderBacktest});
+  ], mrows, {total:{m:"Total",units:fmt(mt.units,0),fixed:money(mt.fixed,0),mUse:money(mt.mUse,0),mFlat:money(mt.mFlat,0),total:money(mt.total,0),oBase:money(mt.oBase,0),oVar:money(mt.oVar,0),oCam:money(mt.oCam,0),oB:money(mt.oB,0),diffB:money(mt.diffB,0),dmg:money(mt.dmg,0),ex:money(mt.ex,0),tot2026:money(mt.tot2026,0),filled:fmt(mt.filled,0)}, rerender:renderBacktest});
+
+  // by asset type
+  if(O){
+    const trows=O.types.filter(t=>t.newT||t.oldEst);
+    const tt={rtype:"Total",nOld:fmt(sum(trows,"nOld"),0),nNew:fmt(sum(trows,"nNew"),0)}; ["oldBase","estVar","estCam","oldEst","newFixed","newMaint","newT"].forEach(k=>tt[k]=money(sum(trows,k),0)); tt.diff=money(sum(trows,"newT")-sum(trows,"oldEst"),0);
+    renderTable("btType",[
+      {k:"rtype",h:"Asset type"},{k:"cls",h:"Class"},{k:"nOld",h:"Units billed (old)",num:1,f:r=>fmt(r.nOld,0)},{k:"nNew",h:"Units (new)",num:1,f:r=>fmt(r.nNew,0)},
+      {k:"oldBase",h:"Old base billed",num:1,f:r=>money(r.oldBase,0)},
+      {k:"estVar",h:"Old $0.42/mile (est.)",num:1,f:r=>money(r.estVar,0)},
+      {k:"estCam",h:"Old cameras (est.)",num:1,f:r=>money(r.estCam,0)},
+      {k:"oldEst",h:"Old total (est.)",num:1,f:r=>`<b>${money(r.oldEst,0)}</b>`},
+      {k:"newFixed",h:"New fixed",num:1,f:r=>money(r.newFixed,0)},{k:"newMaint",h:"New maint.",num:1,f:r=>money(r.newMaint,0)},
+      {k:"newT",h:"New total",num:1,f:r=>`<b>${money(r.newT,0)}</b>`},
+      {k:"diff",h:"New − old",num:1,f:r=>dcol(r.diff)},{k:"pct",h:"% change",num:1,f:r=>r.pct==null?"—":(r.pct*100).toFixed(1)+"%"},
+      {k:"perMo",h:"Old / unit-mo",num:1,sv:r=>r.oldMo?r.oldEst/r.oldMo:null,f:r=>r.oldMo?money(r.oldEst/r.oldMo,0):"—"},
+      {k:"perMoN",h:"New / unit-mo",num:1,sv:r=>r.newMo?r.newT/r.newMo:null,f:r=>r.newMo?money(r.newT/r.newMo,0):"—"}
+    ], trows, {sortKey:"diff", sortDir:-1, total:tt, rerender:renderBacktest});
+  }
+
+  // miles check
+  if(O){
+    const billedStores=new Set(B.stores.filter(s=>s.oldMi>0).map(s=>s.store));
+    const mi=B.M.map((m,i)=>{ let gB=0,gN=0; Object.entries(B.geo).forEach(([s,v])=>{ if(isExcluded(s)) return; if(billedStores.has(s)) gB+=v[i]; else gN+=v[i]; });
+      return {m, billed:O.fr.miles[i], gB, gN, diff:O.fr.miles[i]-gB}; });
+    const mtot={m:"Total"}; ["billed","gB","gN","diff"].forEach(k=>mtot[k]=fmt(mi.reduce((x,r)=>x+r[k],0),0));
+    renderTable("btMiles",[
+      {k:"m",h:"Month",nosort:1},{k:"billed",h:"Miles billed at $0.42",num:1,nosort:1,f:r=>fmt(r.billed,0)},
+      {k:"gB",h:"Geotab miles, same locations",num:1,nosort:1,f:r=>fmt(r.gB,0)},
+      {k:"diff",h:"Billed − Geotab",num:1,nosort:1,f:r=>fmt(r.diff,0)},{k:"pct",h:"%",num:1,nosort:1,f:r=>r.gB?(r.diff/r.gB*100).toFixed(1)+"%":"—"},
+      {k:"gN",h:"Geotab miles at locations billed no miles",num:1,nosort:1,f:r=>fmt(r.gN,0)}
+    ], mi, {total:mtot, rerender:renderBacktest});
+  }
+
+  // by store
   const q=$("btSearch").value.trim().toLowerCase();
-  const srows = B.stores.filter(s=>!q||s.store.toLowerCase().includes(q)||s.name.toLowerCase().includes(q));
-  const stot={store:"Total",units:fmt(sum(srows,"units"),0),newT:money(sum(srows,"newT"),0),oldT:money(sum(srows.filter(s=>s.oldT!=null),"oldT"),0),
-    diff:money(sum(srows.filter(s=>s.oldT!=null),"newT")-sum(srows.filter(s=>s.oldT!=null),"oldT"),0),act:money(sum(srows.filter(s=>s.act!=null),"act"),0),
-    vsAct:money(sum(srows.filter(s=>s.act!=null),"newT")-sum(srows.filter(s=>s.act!=null),"act"),0),oct:money(sum(srows,"oct"),0),ytd:money(sum(srows,"ytd"),0)};
+  const srows = B.stores.filter(s=>!q||s.store.toLowerCase().includes(q)||(s.name||"").toLowerCase().includes(q));
+  const hasB=srows.filter(s=>s.oldB!=null), hasA=srows.filter(s=>s.oldT!=null), hasX=srows.filter(s=>s.act!=null);
+  const stot={store:"Total",units:fmt(sum(srows,"units"),0),newB:money(sum(srows,"newB"),0),oldB:money(sum(hasB,"oldB"),0),diffB:money(sum(hasB,"newB")-sum(hasB,"oldB"),0),oldDmg:money(sum(srows,"oldDmg"),0),
+    oldMi:fmt(sum(srows,"oldMi"),0),geoMi:fmt(sum(srows,"geoMi"),0),newT:money(sum(srows,"newT"),0),oldT:money(sum(hasA,"oldT"),0),diff:money(sum(hasA,"newT")-sum(hasA,"oldT"),0),
+    act:money(sum(hasX,"act"),0),vsAct:money(sum(hasX,"newT")-sum(hasX,"act"),0),ytd:money(sum(srows,"ytd"),0)};
   renderTable("btStore",[
-    {k:"store",h:"Store"},{k:"name",h:"Name"},{k:"units",h:"Units billed",num:1,f:r=>fmt(r.units,0)},
-    {k:"newT",h:"New rates Jan–"+B.M[th],num:1,f:r=>`<b>${money(r.newT,0)}</b>`},
-    {k:"oldT",h:"Old flat rate Jan–"+B.M[th],num:1,f:r=>r.oldT==null?'<span class="pill ex">not allocated</span>':money(r.oldT,0)},
-    {k:"diff",h:"New − old",num:1,f:r=>r.diff==null?"—":`<span style="color:${r.diff>0?"var(--bad)":"var(--ok)"}">${money(r.diff,0)}</span>`},
-    {k:"pct",h:"% change",num:1,f:r=>r.pct==null?"—":(r.pct*100).toFixed(1)+"%"},
-    {k:"act",h:"Actual expense Jan–"+B.M[th],num:1,f:r=>money(r.act,0)},
-    {k:"vsAct",h:"New − actual",num:1,f:r=>r.vsAct==null?"—":money(r.vsAct,0)},
-    {k:"oct",h:"New rates "+B.M[B.M.length-1],num:1,f:r=>money(r.oct,0)},
-    {k:"ytd",h:"New rates Jan–"+B.M[B.M.length-1],num:1,f:r=>money(r.ytd,0)}
+    {k:"store",h:"Store"},{k:"name",h:"Name"},{k:"units",h:"Units (current)",num:1,f:r=>fmt(r.units,0)},
+    {k:"newB",h:"New, Jan–"+L+" (2026 billing location)",num:1,f:r=>`<b>${money(r.newB,0)}</b>`},
+    {k:"oldB",h:"Old billed Jan–"+L+" (excl. damages)",num:1,f:r=>r.oldB==null?'<span class="pill ex">not billed</span>':money(r.oldB,0)},
+    {k:"diffB",h:"New − old",num:1,f:r=>dcol(r.diffB)},
+    {k:"pctB",h:"% change",num:1,f:r=>r.pctB==null?"—":(r.pctB*100).toFixed(1)+"%"},
+    {k:"oldDmg",h:"Damages billed",num:1,f:r=>r.oldDmg?money(r.oldDmg,0):"—"},
+    {k:"oldMi",h:"Miles billed",num:1,f:r=>r.oldMi==null?"—":fmt(r.oldMi,0)},
+    {k:"geoMi",h:"Geotab miles (current units)",num:1,f:r=>fmt(r.geoMi,0)},
+    {k:"ytd",h:"New, Jan–"+L+" (current location)",num:1,f:r=>money(r.ytd,0)},
+    {k:"newT",h:"New Jan–"+B.M[th]+" (current)",num:1,f:r=>money(r.newT,0)},
+    {k:"oldT",h:"Accounting alloc. Jan–"+B.M[th],num:1,f:r=>r.oldT==null?"—":money(r.oldT,0)},
+    {k:"diff",h:"New − alloc.",num:1,f:r=>dcol(r.diff)},
+    {k:"act",h:"Actual Jan–"+B.M[th],num:1,f:r=>r.act==null?"—":money(r.act,0)},
+    {k:"vsAct",h:"New − actual",num:1,f:r=>r.vsAct==null?"—":money(r.vsAct,0)}
   ], srows, {sortKey:"store", total:stot, rerender:renderBacktest});
+
+  // by asset
+  if(O){
+    const arows = O.assets.filter(a=>!q||[a.id,a.store,a.oldStore,a.tmpl,a.rtype].join(" ").toLowerCase().includes(q));
+    const n = renderTable("btAsset",[
+      {k:"id",h:"Asset"},{k:"oldStore",h:"Billed to (2026)"},{k:"store",h:"Current store"},{k:"tmpl",h:"Template",f:r=>esc(String(r.tmpl).length>34?String(r.tmpl).slice(0,32)+"…":r.tmpl)},{k:"rtype",h:"Rate type"},
+      {k:"oldMo",h:"Months billed",num:1},{k:"oldBase",h:"Old base",num:1,f:r=>money(r.oldBase,0)},
+      {k:"estVC",h:"Old miles + camera (est.)",num:1,sv:r=>r.estVar+r.estCam,f:r=>money(r.estVar+r.estCam,0)},
+      {k:"oldEst",h:"Old total (est.)",num:1,f:r=>money(r.oldEst,0)},
+      {k:"newMo",h:"Months (new)",num:1},{k:"newT",h:"New total",num:1,f:r=>money(r.newT,0)},{k:"diff",h:"New − old",num:1,f:r=>dcol(r.diff)}
+    ], arows, {sortKey:"diff", sortDir:-1, limit:300, rerender:renderBacktest});
+    $("btAssetNote").textContent = `${fmt(n,0)} assets${n>300?" (top 300 shown; all in the Excel download)":""}.`;
+  }
   $("btNote").textContent = B.unpriced.length ? `${B.unpriced.length} disposed unit(s) with no rate type left out (${[...new Set(B.unpriced.map(u=>u.tmpl))].join(", ")}).` : "";
 }
 function filterAssets(){
@@ -1053,13 +1168,32 @@ $("btnExport").onclick = async ()=>{
   const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
   XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
   const BT = computeBacktest(), th=BT.thru;
-  const wsBM = XLSX.utils.json_to_sheet(BT.M.map((m,i)=>({"Month":m+" 2026","Unit-Months":BT.byMonth[i].units,"Fixed (Base+Fees)":r2(BT.byMonth[i].fixed),"Maint - Miles/Hours":r2(BT.byMonth[i].mUse),
-    "Maint - Flat Monthly":r2(BT.byMonth[i].mFlat),"New Rate Total (All Locations)":r2(BT.byMonth[i].total),"2026 Charges incl. HQ":BT.oldAll[i],"New - 2026 (All)":BT.oldAll[i]!=null?r2(BT.byMonth[i].total-BT.oldAll[i]):null,"New Rate - Accounting's Stores":r2(BT.byMonth[i].totalAcct),"Old Flat Rate Billed":i<=th?r2(BT.oldByMonth[i]):null,"New - Old":i<=th?r2(BT.byMonth[i].totalAcct-BT.oldByMonth[i]):null,"Unit-Months Filled":BT.byMonth[i].filled})));
-  wsBM["!cols"]=[{wch:10},...Array(11).fill({wch:16})]; XLSX.utils.book_append_sheet(wb, wsBM, "Back-test by Month");
-  const wsBS = XLSX.utils.json_to_sheet(BT.stores.slice().sort((a,b)=>storeSort(a.store,b.store)).map(s=>{const o={"Store":s.store,"Store Name":s.name,"Units Billed":s.units};
-    BT.M.forEach((m,i)=>o["New "+m]=r2(s.months[i])); Object.assign(o,{["New Jan-"+BT.M[th]]:r2(s.newT),["Old Flat Rate Jan-"+BT.M[th]]:r2(s.oldT),"New - Old":r2(s.diff),"% Change":s.pct==null?null:Math.round(s.pct*1000)/1000,
-    ["Actual Expense Jan-"+BT.M[th]]:r2(s.act),"New - Actual":r2(s.vsAct),["New Jan-"+BT.M[BT.M.length-1]]:r2(s.ytd)}); return o;}));
-  wsBS["!cols"]=[{wch:8},{wch:24},{wch:8},...Array(20).fill({wch:12})]; XLSX.utils.book_append_sheet(wb, wsBS, "Back-test by Store");
+  const O=BT.old, sa=a=>a.reduce((x,y)=>x+(y||0),0);
+  const wsBM = XLSX.utils.json_to_sheet(BT.M.map((m,i)=>({"Month":m+" 2026","Unit-Months":BT.byMonth[i].units,"New: Fixed (Base+Fees)":r2(BT.byMonth[i].fixed),"New: Maint - Miles/Hours":r2(BT.byMonth[i].mUse),
+    "New: Maint - Flat Monthly":r2(BT.byMonth[i].mFlat),"New Rate Total":r2(BT.byMonth[i].total),"Old: Base":O?r2(O.fr.base[i]):null,"Old: $0.42/Mile":O?r2(O.fr.variable[i]):null,"Old: Cameras":O?r2(O.fr.camera[i]):null,
+    "Old Billed Total (excl. Damages & Excluded Sites)":O?r2(O.billed[i]):null,"New - Old":O?r2(BT.byMonth[i].total-O.billed[i]):null,"Damages Billed":O?r2(O.fr.damages[i]):null,"Excluded Sites Billed":O?r2(O.ex.total[i]):null,"2026 Billed Total":O?O.total[i]:null,
+    "New Rate - Accounting's Stores":r2(BT.byMonth[i].totalAcct),"Accounting Allocation":i<=th?r2(BT.oldByMonth[i]):null,"Unit-Months Filled":BT.byMonth[i].filled})));
+  wsBM["!cols"]=[{wch:10},...Array(16).fill({wch:15})]; XLSX.utils.book_append_sheet(wb, wsBM, "Back-test by Month");
+  const wsBS = XLSX.utils.json_to_sheet(BT.stores.slice().sort((a,b)=>storeSort(a.store,b.store)).map(s=>{const o={"Store":s.store,"Store Name":s.name,"Units (Current)":s.units};
+    Object.assign(o,{["New Jan-"+BT.M[BT.M.length-1]+" (2026 Billing Location)"]:r2(s.newB),"Old Base":r2(s.oldBase),"Old $0.42/Mile":r2(s.oldVar),"Old Cameras":r2(s.oldCam),"Old Billed (excl. Damages)":r2(s.oldB),"New - Old":r2(s.diffB),"Damages Billed":r2(s.oldDmg)||null,
+      "Miles Billed":s.oldMi==null?null:Math.round(s.oldMi),"Geotab Miles (Current Units)":Math.round(s.geoMi||0)});
+    BT.M.forEach((m,i)=>o["New "+m+" (Current Location)"]=r2(s.months[i])); Object.assign(o,{["New Jan-"+BT.M[BT.M.length-1]+" (Current Location)"]:r2(s.ytd),["New Jan-"+BT.M[th]]:r2(s.newT),["Accounting Alloc Jan-"+BT.M[th]]:r2(s.oldT),"New - Alloc":r2(s.diff),
+    ["Actual Expense Jan-"+BT.M[th]]:r2(s.act),"New - Actual":r2(s.vsAct)}); return o;}));
+  wsBS["!cols"]=[{wch:8},{wch:24},{wch:8},...Array(30).fill({wch:12})]; XLSX.utils.book_append_sheet(wb, wsBS, "Back-test by Store");
+  if(O){
+    const wsT = XLSX.utils.json_to_sheet(O.types.filter(t=>t.newT||t.oldEst).sort((a,b)=>b.diff-a.diff).map(t=>({"Asset Type":t.rtype,"Class":t.cls,"Units Billed (Old)":t.nOld,"Units (New)":t.nNew,"Old Base Billed":r2(t.oldBase),"Old $0.42/Mile (Est.)":r2(t.estVar),"Old Cameras (Est.)":r2(t.estCam),
+      "Old Total (Est.)":r2(t.oldEst),"New Fixed":r2(t.newFixed),"New Maint":r2(t.newMaint),"New Total":r2(t.newT),"New - Old":r2(t.diff),"% Change":t.pct==null?null:Math.round(t.pct*1000)/1000,"Old / Unit-Month":t.oldMo?r2(t.oldEst/t.oldMo):null,"New / Unit-Month":t.newMo?r2(t.newT/t.newMo):null})));
+    wsT["!cols"]=[{wch:30},{wch:12},...Array(13).fill({wch:13})]; XLSX.utils.book_append_sheet(wb, wsT, "Back-test by Type");
+    const wsA = XLSX.utils.json_to_sheet(O.assets.slice().sort((a,b)=>storeSort(a.oldStore||a.store,b.oldStore||b.store)||a.id.localeCompare(b.id)).map(a=>({"Asset":a.id,"Billed To (2026)":a.oldStore,"Current Store":a.store,"Template":a.tmpl,"Rate Type":a.rtype,
+      "Months Billed (Old)":a.oldMo,"Old Base":r2(a.oldBase),"Old $0.42/Mile (Est.)":r2(a.estVar),"Old Camera (Est.)":r2(a.estCam),"Old Total (Est.)":r2(a.oldEst),"Months (New)":a.newMo,"New Fixed":r2(a.newFixed),"New Maint":r2(a.newMaint),"New Total":r2(a.newT),"New - Old":r2(a.diff)})));
+    wsA["!cols"]=[{wch:9},{wch:8},{wch:8},{wch:26},{wch:28},...Array(10).fill({wch:12})]; XLSX.utils.book_append_sheet(wb, wsA, "Back-test by Asset");
+    const ob=[["Store","Store Name","Excluded Location","Component",...OLD.months.map(m=>m+" 2026"),"Total"]];
+    Object.keys(OLD.stores).sort(storeSort).forEach(st=>{ const v=OLD.stores[st]; [["base","Base"],["variable","$0.42/Mile"],["camera","Cameras"],["damages","Damages"],["miles","Miles Billed"],["units","Units Billed"]].forEach(([k,lab])=>{ if(sa(v[k])) ob.push([st,STORE_NAMES[st]||(ACCT&&ACCT.names[st])||"",isExcluded(st)?"Y":"",lab,...v[k],r2(sa(v[k]))]); }); });
+    ob.push([],["Total billed","","","",...OLD.totals,r2(sa(OLD.totals))]);
+    const wsO=XLSX.utils.aoa_to_sheet(ob); wsO["!cols"]=[{wch:7},{wch:22},{wch:8},{wch:12},...Array(11).fill({wch:12})]; XLSX.utils.book_append_sheet(wb, wsO, "Old Billing 2026");
+    const wsD=XLSX.utils.aoa_to_sheet([["Month","Store","Store Name","Excluded Location","Damage Line","Amount"],...OLD.damages.map(d=>[d[0],d[1],STORE_NAMES[d[1]]||"",isExcluded(d[1])?"Y":"",d[2],d[3]])]);
+    wsD["!cols"]=[{wch:6},{wch:7},{wch:20},{wch:8},{wch:70},{wch:12}]; XLSX.utils.book_append_sheet(wb, wsD, "Damages 2026");
+  }
   const wsBD = XLSX.utils.aoa_to_sheet([["Month","Store","Store Name","Asset","Template","Rate Type","Note","Fixed (Base+Fees)","Maint Basis","Miles/Hours","Reading Filled","Maint Rate","Maintenance","Total Charge"],...BT.detail]);
   wsBD["!cols"]=[{wch:6},{wch:6},{wch:20},{wch:9},{wch:24},{wch:26},{wch:14},{wch:12},{wch:8},{wch:10},{wch:8},{wch:9},{wch:12},{wch:12}];
   XLSX.utils.book_append_sheet(wb, wsBD, "Back-test Detail");
