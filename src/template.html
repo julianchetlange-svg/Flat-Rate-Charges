@@ -315,7 +315,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 18,
+  rev: 19,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -451,6 +451,7 @@ function usageMaintMiHr(t){
 }
 function borrowed(t){
   const f=(S.maintSource||{})[t]; if(!f) return null;
+  const lk=(S.lockedMaint||{})[f]; if(lk!=null) return {rate:lk, from:f};
   const m=maintFor(rt(f)===f?f:rt(f)); if(!m) return null;
   const b=m.ch.units>0?m.ch:m.all; const rate=S.maintAvg==="weighted"?b.rate:b.mean;
   return rate==null?null:{rate, from:f};
@@ -588,7 +589,8 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<16){ S.classes.TMFL.life=96; S.classes.Forklift.life=96; S.classes.Trailer.life=180; S.classes["Specialty Trailer"].life=180; }
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
-  S.rev=18;
+  if(!o.rev || o.rev<19){ S.lockedMaint=Object.assign({}, S.lockedMaint); delete S.lockedMaint["24' Van Body"]; }
+  S.rev=19;
 }
 function changed(){
   persistLocal(); renderAll();

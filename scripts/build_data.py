@@ -23,6 +23,9 @@ DATA = ROOT / 'data'
 EX = {'353', '355', '355CD', '356', '359', '489', '450', '950'}
 # CPM templates that are not rated per mile / hour
 SKIP = {'(blank)', 'Sub / rental unit', 'Electric Pallet Jack', 'Mobile Generator Trailer', 'Scissor Lift'}
+# units left out of the per-mile/hour rates as anomalies
+#   694028  24' Van Body, 068 Plainview, disposed: $7,155 Fexa on 3,918 miles Jan-May (11/17/2026: keep 24' Van Body at $0.468)
+MAINT_EXCLUDE = {'694028'}
 
 
 def assets(path):
@@ -77,7 +80,7 @@ def maint_rates(d):
     for a in d['assets']:
         t = a['t'] or '(blank)'
         arr, meas = usage(a)
-        if arr is None or t in SKIP: continue
+        if arr is None or t in SKIP or a['id'] in MAINT_EXCLUDE: continue
         o = g[t]; o['c'] = a['c']; o['meas'] = meas; o['n'] += 1
         use = sum(arr)
         if use <= 0: continue
