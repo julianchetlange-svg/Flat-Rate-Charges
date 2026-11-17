@@ -157,7 +157,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <!-- BACKTEST -->
   <section class="view" id="v-backtest">
     <div class="panel" style="margin-bottom:12px">
-      <h2>2026 back-test: new rates on Jan–Oct 2026 usage vs. the old flat rate</h2>
+      <h2>Back-test: the 2027 rates applied to Jan–Oct 2026 usage vs. what 2026 billed</h2>
       <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + ad valorem + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
     </div>
     <div class="kpis" id="btKpis"></div>
@@ -193,7 +193,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
     <div class="grid2">
       <div class="panel">
         <h2>Rate year and funding</h2>
-        <p class="help">Confirm these each year before building rates. Defaults are the 2026 values from the project instructions.</p>
+        <p class="help">Confirm these each year before building rates. The 2027 rate is built from 2026 data (asset list as of 11/13/2026, Jan–Oct 2026 Fexa maintenance and miles/hours).</p>
         <div class="form" id="formGlobal"></div>
       </div>
       <div class="panel">
@@ -314,13 +314,13 @@ const ASOF = "2026-11-13";
 /* ---------- defaults ---------- */
 const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","Trailer","Specialty Trailer","Cart / Sweeper","Unassigned"];
 const DEFAULTS = {
-  year: 2026,
+  year: 2027,
   fundingRate: 6,
   adValPct: 0.8,
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 19,
+  rev: 20,
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -594,6 +594,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<16){ S.classes.TMFL.life=96; S.classes.Forklift.life=96; S.classes.Trailer.life=180; S.classes["Specialty Trailer"].life=180; }
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
+  if(!o.rev || o.rev<20){ S.year=2027; }
   if(!o.rev || o.rev<19){ S.lockedMaint=Object.assign({}, S.lockedMaint); delete S.lockedMaint["24' Van Body"]; }
   S.rev=19;
 }
