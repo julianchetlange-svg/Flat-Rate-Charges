@@ -794,10 +794,7 @@ function renderMaint(){
     {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
     {k:"maint",h:"Maint. (rolling 12)",num:1,f:r=>money(r.maint,0)},
     {k:"use",h:"Miles / hours (same period)",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
-    {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")+(r.borrowedFrom?` <span class="pill info" title="Uses the ${esc(r.borrowedFrom)} rate">from ${esc(r.borrowedFrom)}</span>`:"")},
-    {k:"mean",h:"Simple avg.",num:1,f:r=>r.mean==null?"—":"$"+fmt(r.mean,r.meas==="mile"?3:2)},
-    {k:"wtd",h:"Weighted",num:1,f:r=>r.wtd==null?"—":"$"+fmt(r.wtd,r.meas==="mile"?3:2)},
-    {k:"med",h:"Median unit rate",num:1,f:r=>r.med==null?"—":"$"+fmt(r.med,r.meas==="mile"?3:2)},
+    {k:"rate",h:"Rate charged",num:1,f:r=>r.rate==null?((CALC.TYPE[r.t]||{}).maint?`<b>${money(CALC.TYPE[r.t].maint,2)}</b> /mo <span class="pill" title="No usage data: Fexa average per unit-month">flat</span>`:"—"):`<b>${"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")+(r.borrowedFrom?` <span class="pill info" title="Uses the ${esc(r.borrowedFrom)} rate">from ${esc(r.borrowedFrom)}</span>`:"")},
     {k:"mo",h:"Avg monthly use / unit",num:1,f:r=>r.mo==null?"—":fmt(r.mo,0)+" "+u(r)},
     {k:"implied",h:"Maint. in rate / unit / mo",num:1,f:r=>money(r.implied)},
     {k:"current",h:"Old fixed / unit / mo",num:1,f:r=>r.current==null?"—":money(r.current)},
@@ -1219,8 +1216,8 @@ $("btnExport").onclick = async ()=>{
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
   const mr = maintRows().filter(r=>r.n>0).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":r.meas==="mile"?"Mile":"Hour","Basis":r.basis==="charge"?"Charge locations":"All locations",
-    "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
-    "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Jan–Aug hours estimated":"")}));
+    "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Rate Charged":r.rate,
+    "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Nov–Dec 2025 hours = each unit's average month":"")}));
   const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
   XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
   const BT = computeBacktest(), th=BT.thru;
