@@ -320,7 +320,8 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 20,
+  rev: 21,
+  monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
   maintAvg: "weighted",
@@ -445,6 +446,7 @@ function unitMonthMaint(t){
 function usageMaint(t){ return usageMaintMiHr(t) || unitMonthMaint(t); }
 function usageMaintMiHr(t){
   const cls = clsOf(t); if(!USAGE_CLASSES.has(cls)) return null;
+  if((S.monthlyMaint||[]).includes(t)) return null;
   const m = maintFor(t); if(!m) return null;
   const useCh = m.ch.units>0, b = useCh?m.ch:m.all;
   const locked = (S.lockedMaint||{})[t];
@@ -595,6 +597,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<21){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
   if(!o.rev || o.rev<19){ S.lockedMaint=Object.assign({}, S.lockedMaint); delete S.lockedMaint["24' Van Body"]; }
   S.rev=19;
 }
@@ -739,7 +742,7 @@ function renderMaint(){
   const u = r=>r.meas==="mile"?"mi":"hr";
   renderTable("mTable",[
     {k:"t",h:"Asset type"},{k:"cls",h:"Class"},
-    {k:"meas",h:"Per",f:r=>r.meas==="mile"?"Mile":"Hour"},
+    {k:"meas",h:"Per",f:r=>(S.monthlyMaint||[]).includes(r.t)?`${r.meas==="mile"?"Mile":"Hour"} <span class="pill">charged flat monthly: ${money((CALC.TYPE[r.t]||{}).maint,2)}</span>`:(r.meas==="mile"?"Mile":"Hour")},
     {k:"units",h:"Charge units",num:1,f:r=>fmt(r.units,0)},
     {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
     {k:"maint",h:"YTD maint.",num:1,f:r=>money(r.maint,0)},
@@ -985,11 +988,12 @@ function renderAssumptions(){
   $("formGlobal").innerHTML = fields.map(f=>`<label>${f[1]}${f[2]?`<small>${f[2]}</small>`:""}</label><input class="in ${f[0]==="fundingRate"&&S.fundingRate==null?"need":""}" type="number" step="${f[3]}" data-g="${f[0]}" value="${S[f[0]]??""}" placeholder="${f[0]==="fundingRate"?"required":""}">`).join("")
     + `<label>Maintenance $/mile-hour average<small>How each type's maintenance rate is averaged</small></label><select class="in" data-g="maintAvg"><option value="simple" ${S.maintAvg!=="weighted"?"selected":""}>Simple avg. of unit rates</option><option value="weighted" ${S.maintAvg==="weighted"?"selected":""}>Weighted (spend ÷ usage)</option></select>`
     + `<label>Pickup maintenance ($/mile, locked)<small>Used instead of Fexa data, which is incomplete for pickups</small></label><input class="in" type="number" step="0.001" data-g="pickupLock" value="${(S.lockedMaint||{}).Pickup??""}">`
+    + `<label>TMFL maintenance basis<small>Flat monthly = Fexa spend ÷ unit-months; same average as per hour, without relying on TMFL hour readings</small></label><select class="in" data-g="tmflBasis"><option value="month" ${(S.monthlyMaint||[]).includes("Truck Mounted Forklift & 4-Way")?"selected":""}>Flat monthly average</option><option value="hour" ${(S.monthlyMaint||[]).includes("Truck Mounted Forklift & 4-Way")?"":"selected"}>Per hour</option></select>`
     + `<label>Car maintenance ($/mile, locked)</label><input class="in" type="number" step="0.001" data-g="carLock" value="${(S.lockedMaint||{}).Car??""}">`
     + `<label>All-in cost age (months)<small>Units younger than this already include aftermarket in cost; no aftermarket added</small></label><input class="in" type="number" data-g="allInMonths" value="${S.allInMonths??""}">`
     + `<label>Charge loaner units<small>Loaners are billed to the store currently holding them</small></label><select class="in" data-g="includeLoaners"><option value="1" ${S.includeLoaners?"selected":""}>Yes</option><option value="0" ${!S.includeLoaners?"selected":""}>No</option></select>`;
   $("formGlobal").querySelectorAll("[data-g]").forEach(el=>el.onchange=()=>{ const k=el.dataset.g;
-    if(k==="includeLoaners") S[k]=el.value==="1"; else if(k==="maintAvg") S[k]=el.value; else if(k==="carLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Car; else S.lockedMaint.Car=v; } else if(k==="pickupLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Pickup; else S.lockedMaint.Pickup=v; } else S[k]=num(el.value);
+    if(k==="tmflBasis"){ const T="Truck Mounted Forklift & 4-Way"; S.monthlyMaint=(S.monthlyMaint||[]).filter(x=>x!==T); if(el.value==="month") S.monthlyMaint.push(T); } else if(k==="includeLoaners") S[k]=el.value==="1"; else if(k==="maintAvg") S[k]=el.value; else if(k==="carLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Car; else S.lockedMaint.Car=v; } else if(k==="pickupLock"){ S.lockedMaint=Object.assign({},S.lockedMaint); const v=num(el.value); if(v==null) delete S.lockedMaint.Pickup; else S.lockedMaint.Pickup=v; } else S[k]=num(el.value);
     if(k==="year"&&S.year==null) S.year=DEFAULTS.year; changed(); });
   $("exChips").innerHTML = S.excluded.slice().sort(storeSort).map(s=>`<span class="chip">${esc(s)} <span class="muted small">${esc(STORE_NAMES[s]||"not in list")}</span><button data-x="${esc(s)}" title="Put back on flat rate">×</button></span>`).join("");
   $("exChips").querySelectorAll("[data-x]").forEach(b=>b.onclick=()=>{ S.excluded=S.excluded.filter(x=>x!==b.dataset.x); changed(); });
@@ -1206,7 +1210,7 @@ $("btnExport").onclick = async ()=>{
   const fl=flagList("all").map(f=>({"Severity":f.sev==="bad"?"Fix":f.sev==="warn"?"Check":"Info","Flag":f.type,"Store":f.store,"Excluded Location":f.excluded?"Y":"","Asset":f.asset,"Template":f.template,"Detail":f.msg}));
   const ws4=XLSX.utils.json_to_sheet(fl.length?fl:[{"Flag":"None"}]); ws4["!cols"]=[{wch:9},{wch:18},{wch:7},{wch:9},{wch:10},{wch:24},{wch:80}];
   XLSX.utils.book_append_sheet(wb, ws4, "Flags");
-  const as=[["Rate year",S.year],["Funding rate (annual)",S.fundingRate==null?"NOT SET":S.fundingRate/100],["Ad valorem % (annual)",S.adValPct/100],["GPS $/mo",S.gps],["Lytx $/mo",S.lytx],["Pickup maintenance $/mile (locked)",(S.lockedMaint||{}).Pickup??"not locked"],["Car maintenance $/mile (locked)",(S.lockedMaint||{}).Car??"not locked"],["Maintenance average",S.maintAvg==="weighted"?"Weighted (spend ÷ usage)":"Simple average of unit rates"],["Planned 2027 changes",plannedOn()?`${S.planned.replace.length} new ${S.planned.template} at $${S.planned.cost} replacing ${S.planned.replace.join(", ")}; new-unit maint $${S.planned.newRate}/mi`:"none"],["All-in cost cutoff (months)",S.allInMonths??"none"],["Charge loaners",S.includeLoaners?"Yes":"No"],["Excluded locations",S.excluded.join(", ")],[],
+  const as=[["Rate year",S.year],["Funding rate (annual)",S.fundingRate==null?"NOT SET":S.fundingRate/100],["Ad valorem % (annual)",S.adValPct/100],["GPS $/mo",S.gps],["Lytx $/mo",S.lytx],["Pickup maintenance $/mile (locked)",(S.lockedMaint||{}).Pickup??"not locked"],["Car maintenance $/mile (locked)",(S.lockedMaint||{}).Car??"not locked"],["Flat monthly maintenance (types with miles/hours)",(S.monthlyMaint||[]).join(", ")||"none"],["Maintenance average",S.maintAvg==="weighted"?"Weighted (spend ÷ usage)":"Simple average of unit rates"],["Planned 2027 changes",plannedOn()?`${S.planned.replace.length} new ${S.planned.template} at $${S.planned.cost} replacing ${S.planned.replace.join(", ")}; new-unit maint $${S.planned.newRate}/mi`:"none"],["All-in cost cutoff (months)",S.allInMonths??"none"],["Charge loaners",S.includeLoaners?"Yes":"No"],["Excluded locations",S.excluded.join(", ")],[],
     ["Class","Life (mo)","Residual %","Registration %","GPS","Lytx","Fixed Maint $/mo (no-usage types)"],
     ...CLASS_ORDER.map(c=>{const C=S.classes[c];return [c,C.life,C.resid/100,C.reg/100,C.gps?"Y":"N",C.lytx?"Y":"N",C.maint];}),[],
     ["Template","Rate Class","Default Aftermarket"],...TEMPLATES.map(t=>[t,S.templateMap[t]||"Unassigned",S.amTemplate[t]??null])];
