@@ -9,6 +9,7 @@ Usage:
   CPM_INDEX_HTML   index.html from julianchetlange-svg/Fleet-CMP-HOUR-Analysis (the YTD cost per mile /
                    hour report, which embeds the Fexa maintenance, miles and hours by asset)
 
+Uses data/prior_spend.json (scripts/prior_spend.py) for rolling-12 unit-month maintenance when present.
 Writes data/assets.json, data/maint_rates.json, data/unitmonth.json, data/tractor_units.json and
 data/cost_estimates.json.
 Then run scripts/build_html.py.
@@ -114,13 +115,24 @@ def maint_rates(d):
 
 
 def unit_month(d):
-    """Fexa maintenance per active unit-month by template (types without miles/hours)."""
+    """Fexa maintenance per active unit-month by template, on a rolling 12 months when data/prior_spend.json
+    (Nov-Dec of the prior year) is present. A unit counts as active in Nov/Dec if it had spend that month, or was
+    in service in January and originated by the end of that month."""
+    pf = DATA / 'prior_spend.json'
+    P = json.loads(pf.read_text()) if pf.exists() else {}
     g = collections.defaultdict(lambda: {'ch': [], 'all': []})
     for a in d['assets']:
         if not a['t'] or a['t'] == 'Sub / rental unit': continue
         am = sum(a['act'])
         if am <= 0: continue
-        rec = (sum(a['maint']), am)
+        m = sum(a['maint'])
+        if P and not a.get('std'):
+            p = P.get(a['id'], {}); o = a.get('o') or ''; jan = bool(a['act'][0])
+            for k, end in (('nov', '2025-11-30'), ('dec', '2025-12-31')):
+                sp = p.get(k, 0)
+                if sp or (jan and (not o or o <= end)): am += 1
+                m += sp
+        rec = (m, am)
         g[a['t']]['all'].append(rec)
         if a['r'] and a['s'] not in EX: g[a['t']]['ch'].append(rec)
     out = {}

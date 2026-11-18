@@ -76,3 +76,7 @@ The back-test compares new rates with old billing excluding damages and excluded
 ## Refreshing Fexa maintenance
 
 When a newer Fexa Asset Spend export arrives before the CPM report is rebuilt, `scripts/refresh_fexa.py` swaps the new maintenance into a copy of the CPM report's data (same filtering rules), then `build_data.py` rebuilds the rates from that copy. Last refresh: Asset_Spend_Data_2026_11_18_2026.xlsx (Jan–Oct 2026, $11.98M source).
+
+## Rolling 12-month maintenance
+
+Maintenance is set on a rolling 12 months (decided 11/18/2026); the annual rate is adjusted up or down on it instead of a quarterly review. `scripts/prior_spend.py` loads the prior Nov–Dec Fexa spend into `data/prior_spend.json`, and `build_data.py` adds it to the unit-month rates (forklifts, TMFLs, trailers, other equipment). Per-mile truck rates move to rolling 12 when Nov–Dec 2025 Geotab miles are loaded.
