@@ -91,9 +91,26 @@ def roll12(a):
     return [x[0] for x in pre] + mi, [x[1] for x in pre] + mt, [1] * len(pre) + act
 
 
+def roll12h(a):
+    """Rolling-12 arrays for an hour-rated unit. There are no Nov-Dec 2025 hour readings, so each prior month uses the
+    unit's own average monthly hours (Jan-Oct months with hours), with that month's Fexa spend. A prior month counts
+    when the unit had spend that month or was in service in January and originated by month end."""
+    PS = _prior('prior_spend.json')
+    hr, mt, act = list(a['hr']), list(a['maint']), list(a['act'])
+    if not PS: return hr, mt, act
+    hv = [h for h, x in zip(a['hr'], a['act']) if x and h > 0]
+    avg = sum(hv) / len(hv) if hv else 0
+    ps, o, jan = PS.get(a['id'], {}), a.get('o') or '', bool(a['act'][0])
+    pre = []
+    for k, end in (('nov', '2025-11-30'), ('dec', '2025-12-31')):
+        sp = ps.get(k, 0)
+        if sp or (jan and (not o or o <= end)): pre.append((avg, sp))
+    return [x[0] for x in pre] + hr, [x[1] for x in pre] + mt, [1] * len(pre) + act
+
+
 def usage(a):
     if a['c'] in ('Truck', 'LD Vehicle'): return roll12(a)[0], 'mile'
-    if a['c'] in ('Forklift', 'TMFL'): return a['hr'], 'hour'
+    if a['c'] in ('Forklift', 'TMFL'): return roll12h(a)[0], 'hour'
     return None, None
 
 
@@ -112,12 +129,12 @@ def maint_rates(d):
         ks = ['all', 'ch'] if a['s'] not in EX else ['all']
         nmo = sum(1 for x in arr if x > 0)
         for k in ks: anym[t][k][0] += use; anym[t][k][1] += nmo
-        actv = roll12(a)[2] if meas == 'mile' else a['act']
+        actv = roll12(a)[2] if meas == 'mile' else roll12h(a)[2]
         if any(actv[i] and arr[i] <= 0 for i in range(len(arr))):
             for k in ks: o[k]['gap'] += 1
             continue
         if meas == 'hour' and a.get('he') == 1: o['he'] += 1
-        m = sum(roll12(a)[1]) if meas == 'mile' else (sum(a['mrec']) if a.get('mrec') is not None else sum(a['maint']))  # recorded Fexa spend only
+        m = sum(roll12(a)[1]) if meas == 'mile' else sum(roll12h(a)[1])  # recorded Fexa spend only
         am = sum(actv) or len(arr)
         for k in ks:
             b = o[k]; b['units'] += 1; b['m'] += m; b['u'] += use; b['am'] += am; b['rates'].append(m / use)

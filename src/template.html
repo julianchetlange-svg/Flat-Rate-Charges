@@ -145,7 +145,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <section class="view" id="v-maint">
     <div class="panel" style="margin-bottom:12px">
       <h2>Maintenance cost per mile / hour by asset type</h2>
-      <p class="help" style="margin:0">Maintenance in the rate comes only from Fexa work-order spend, on a <b>rolling 12 months (Nov 2025–Oct 2026)</b>. Fuel, propane, depreciation, registration and taxes are left out. Each year the rate is reset on the latest rolling 12. <b>Trucks, tractors and light-duty vehicles</b> are charged per mile: type rate = total Fexa spend ÷ total Geotab miles (weighted; simple average of unit rates can be set on Assumptions), times the type's average monthly miles per unit. Only units with miles in every month they were active count. A Nov–Dec 2025 month counts for a unit only where Geotab has its miles. <b>Forklifts, TMFLs, trailers and other equipment</b> are charged a flat monthly Fexa average per unit-month (there are no Nov–Dec 2025 hour readings, and TMFL hours are weak); their per-hour figures below are Jan–Oct and for reference only. Rates use charge locations; a type with no charge units uses all locations. <b>Locked:</b> pickups $0.14/mile and cars $0.09/mile (incomplete Fexa data), and the 24' Conveyor at its Jan–Oct $0.765/mile (one $9.1K Dec 2025 repair on its only store unit). The 16' Van Body borrows the 24' Van Body rate. 2027 replacement tractors are blended in at $0.35/mile (new, under warranty). Spend source: Fexa Asset Spend exports of 11/18/2026 (Jan–Oct 2026) and Nov–Dec 2025.</p>
+      <p class="help" style="margin:0">Maintenance in the rate comes only from Fexa work-order spend, on a <b>rolling 12 months (Nov 2025–Oct 2026)</b>. Fuel, propane, depreciation, registration and taxes are left out. Each year the rate is reset on the latest rolling 12. <b>Trucks, tractors and light-duty vehicles</b> are charged per mile: type rate = total Fexa spend ÷ total Geotab miles (weighted; simple average of unit rates can be set on Assumptions), times the type's average monthly miles per unit. Only units with miles in every month they were active count. A Nov–Dec 2025 month counts for a unit only where Geotab has its miles. <b>Yard forklifts</b> are charged per hour: 12-month Fexa spend ÷ 12 months of hours, times the type's average monthly hours. There are no Nov–Dec 2025 hour readings, so each forklift's own average monthly hours stands in for those two months. <b>TMFLs, trailers and other equipment</b> are charged a flat monthly Fexa average per unit-month (TMFL hour readings are weak). Rates use charge locations; a type with no charge units uses all locations. <b>Locked:</b> pickups $0.14/mile and cars $0.09/mile (incomplete Fexa data), and the 24' Conveyor at its Jan–Oct $0.765/mile (one $9.1K Dec 2025 repair on its only store unit). The 16' Van Body borrows the 24' Van Body rate. 2027 replacement tractors are blended in at $0.35/mile (new, under warranty). Spend source: Fexa Asset Spend exports of 11/18/2026 (Jan–Oct 2026) and Nov–Dec 2025.</p>
     </div>
     <div class="toolbar">
       <select id="mMeas"><option value="">Miles and hours</option><option value="mile">Per mile</option><option value="hour">Per hour</option></select>
@@ -326,10 +326,10 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 39,
+  rev: 40,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
-  monthlyMaint: ["Truck Mounted Forklift & 4-Way","6K Yard Forklift","8K Yard Forklift","10K Yard Forklift","3K Yard Forklift","4K Yard Forklift"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak; forklifts have no Nov-Dec 2025 hours for the rolling 12)
+  monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
   planned: {on:true, template:"Tractor TA", replace:["419878","748026","747083","748048","748015","750030","749004","750034","747106","750006"],
             cost:163472, newRate:0.35, when:"Jan 2027"},   // newRate = estimated $/mile for a new tractor (user, 11/18/2026); store tractors originated 2023+ actually run $0.609
   maintAvg: "weighted",
@@ -624,6 +624,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<40){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
   if(!o.rev || o.rev<39){ S.lockedMaint=Object.assign({}, S.lockedMaint, {"24' Conveyor":0.765}); }
   if(!o.rev || o.rev<38){ S.planned=Object.assign({}, S.planned, {newRate:0.35}); }
   if(!o.rev || o.rev<37){ S.planned=Object.assign({}, S.planned, {newRate:0.609}); }
@@ -790,7 +791,7 @@ function renderMaint(){
     {k:"meas",h:"Per",f:r=>(S.monthlyMaint||[]).includes(r.t)?`${r.meas==="mile"?"Mile":"Hour"} <span class="pill">charged flat monthly: ${money((CALC.TYPE[r.t]||{}).maint,2)}</span>`:(r.meas==="mile"?"Mile":"Hour")},
     {k:"units",h:"Charge units",num:1,f:r=>fmt(r.units,0)},
     {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
-    {k:"maint",h:"Maint. (rolling 12; hours: Jan–Oct)",num:1,f:r=>money(r.maint,0)},
+    {k:"maint",h:"Maint. (rolling 12)",num:1,f:r=>money(r.maint,0)},
     {k:"use",h:"Miles / hours (same period)",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
     {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")+(r.borrowedFrom?` <span class="pill info" title="Uses the ${esc(r.borrowedFrom)} rate">from ${esc(r.borrowedFrom)}</span>`:"")},
     {k:"mean",h:"Simple avg.",num:1,f:r=>r.mean==null?"—":"$"+fmt(r.mean,r.meas==="mile"?3:2)},
@@ -1217,7 +1218,7 @@ $("btnExport").onclick = async ()=>{
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
   const mr = maintRows().filter(r=>r.n>0).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":r.meas==="mile"?"Mile":"Hour","Basis":r.basis==="charge"?"Charge locations":"All locations",
-    "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12; hours Jan-Oct)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
+    "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
     "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Jan–Aug hours estimated":"")}));
   const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
   XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
