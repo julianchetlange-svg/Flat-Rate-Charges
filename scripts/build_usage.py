@@ -60,18 +60,20 @@ def acct(path):
             actual[sc(r[0])] = round(float(r[2]), 2)
     ws = wb['Ops Veh Exp Alloc']; rows = list(ws.iter_rows(values_only=True)); hdr = rows[0]
     month_of = []
-    for h in hdr[1:-2]:
+    for h in hdr[1:]:
         m = re.search(r'(\d{2})/\d{2}/2026', str(h))
-        month_of.append(int(m.group(1)) - 1 if m else None)
+        month_of.append(int(m.group(1)) - 1 if m else None)   # JE columns by month; total column ignored
     alloc = {}
     for r in rows[1:]:
         if not r[0] or str(r[0]).strip() == 'Total': continue
         v = [0.0] * 12
-        for mi, x in zip(month_of, r[1:-2]):
+        for mi, x in zip(month_of, r[1:]):
             if mi is not None and x: v[mi] += float(x)
         alloc[sc(r[0])] = [round(x, 2) for x in v]
     names = {sc(r[0]): str(r[0]).split(' ', 1)[1] for r in rows[1:] if r[0] and str(r[0]).strip() != 'Total'}
-    out = {'through': 'Sep', 'alloc': alloc, 'actual': actual, 'names': names}
+    last = max(m for m in month_of if m is not None)
+    MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    out = {'through': MN[last], 'alloc': alloc, 'actual': actual, 'names': names, 'source': Path(path).name}
     old = DATA / 'acct_2026.json'
     if old.exists():   # keep monthly totals entered by hand (old flat-rate charges incl. HQ assets)
         prev = json.loads(old.read_text())
