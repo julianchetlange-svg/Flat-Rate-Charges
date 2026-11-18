@@ -23,12 +23,12 @@ Individual rate per unit:
 
 **Maintenance** (from the YTD Cost per Mile / Hour analysis, Jan–Oct 2026):
 - Trucks, tractors, light-duty: type's total Fexa spend ÷ total miles × average monthly miles per unit.
-- Forklifts and TMFLs: total Fexa spend ÷ total hours × average monthly hours per unit.
+- Forklifts and TMFLs: total Fexa spend ÷ total hours × average monthly hours per unit (Nov–Dec 2025 hours = each unit's average month).
 - Trailers, carts, sweeper, reach truck, scissor lifts: Fexa spend per active unit-month.
 - Locked: pickups $0.14/mile, cars $0.09/mile (incomplete Fexa data).
 - Units with missing telematics/hour months are left out of the per-mile/hour rates.
 
-**2027 rate-year assumptions (built from 2026 data):** funding rate 6.00%; life/residual – forklift 96 mo/15%, TMFL 96/20%, light-duty 72/20%, truck 96/15%, tractor 120/15%, trailer 180/5%, specialty trailer 180/0%.
+**2027 rate-year assumptions (built from 2026 data):** funding rate 6.00%; life/residual – 6K forklift 96 mo/15%, 3K/4K/8K/10K forklift 120/10%, TMFL & 4-Way 108/10%, pickup 96/15%, car 96/15%, 24' TA truck 96/15%, 20' Slide 120/10%, 12' Slide 144/5%, conveyor 144/10%, van body 120/10%, tractor 144/10%, flatbed and specialty trailers 180/0%. Maintenance on a rolling 12 months (Nov 2025–Oct 2026).
 
 **Aftermarket:** wraps ($3,825 trucks/tractors, $4,625 van bodies) and TMFL kits ($3,825 on 24' TA trucks) are added to delivered cost only for units **36 months or older**; newer units (and planned 2027 units) already carry an all-in delivered cost.
 

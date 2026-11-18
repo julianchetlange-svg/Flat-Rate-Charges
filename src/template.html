@@ -326,7 +326,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 41,
+  rev: 42,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: [],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
@@ -342,12 +342,12 @@ const DEFAULTS = {
   excluded: ["353","355","355CD","356","359","489","450","950"],
   classes: {
     "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
-    "TMFL":               {life:108, resid:15, reg:0,   gps:false, lytx:false, maint:318, variable:false},
+    "TMFL":               {life:108, resid:10, reg:0,   gps:false, lytx:false, maint:318, variable:false},
     "Truck":              {life:96,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Tractor":            {life:144, resid:10, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Light-Duty Vehicle": {life:72,  resid:20, reg:0.2, gps:true,  lytx:true,  maint:100, variable:false},
-    "Trailer":            {life:180, resid:5,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
-    "Specialty Trailer":  {life:180, resid:5,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
+    "Trailer":            {life:180, resid:0,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
+    "Specialty Trailer":  {life:180, resid:0,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
     "Cart / Sweeper":     {life:72,  resid:20, reg:0,   gps:false, lytx:false, maint:100, variable:false},
     "Unassigned":         {life:0,   resid:0,  reg:0,   gps:false, lytx:false, maint:0,   variable:false}
   },
@@ -624,6 +624,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<42){ S.classes.TMFL.resid=10; S.classes.Trailer.resid=0; S.classes["Specialty Trailer"].resid=0; }
   if(!o.rev || o.rev<41){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<40){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
   if(!o.rev || o.rev<39){ S.lockedMaint=Object.assign({}, S.lockedMaint, {"24' Conveyor":0.765}); }
