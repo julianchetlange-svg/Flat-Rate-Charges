@@ -785,7 +785,7 @@ function maintRows(){
 }
 function renderMaint(){
   const meas=$("mMeas").value, showAll=$("mShowAll").checked;
-  const rows = maintRows().filter(r=>(!meas||r.meas===meas) && (showAll||r.units>0));
+  const rows = maintRows().filter(r=>r.rate!=null && !(S.monthlyMaint||[]).includes(r.t) && (!meas||r.meas===meas) && (showAll||r.units>0));   // flat monthly types are on Rate by Asset Type
   const u = r=>r.meas==="mile"?"mi":"hr";
   renderTable("mTable",[
     {k:"t",h:"Asset type"},{k:"cls",h:"Class"},
@@ -1215,7 +1215,7 @@ $("btnExport").onclick = async ()=>{
       "Indiv. Low":r2(t.min),"Indiv. High":r2(t.max),"Monthly × Units":r2(t.rate*t.units)}));
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
-  const mr = maintRows().filter(r=>r.n>0).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":((S.monthlyMaint||[]).includes(r.t)||r.rate==null)?"Month":(r.meas==="mile"?"Mile":"Hour"),"Basis":r.basis==="charge"?"Charge locations":"All locations",
+  const mr = maintRows().filter(r=>r.n>0 && r.rate!=null && !(S.monthlyMaint||[]).includes(r.t)).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":((S.monthlyMaint||[]).includes(r.t)||r.rate==null)?"Month":(r.meas==="mile"?"Mile":"Hour"),"Basis":r.basis==="charge"?"Charge locations":"All locations",
     "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Rate Charged":r.rate,
     "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Nov–Dec 2025 hours = each unit's average month":"")}));
   const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
