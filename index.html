@@ -326,9 +326,9 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 33,
-  residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10},   // template -> residual %, overrides the class residual
-  lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
+  rev: 34,
+  residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
+  lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
@@ -607,6 +607,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<34){ S.lifeByType=Object.assign({}, S.lifeByType, {"16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96}); S.residByType=Object.assign({}, S.residByType, {"16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15}); }
   if(!o.rev || o.rev<33){ S.classes["Specialty Trailer"].resid=5; }
   if(!o.rev || o.rev<32){ S.residByType=Object.assign({}, S.residByType, {"8K Yard Forklift":10, "10K Yard Forklift":10}); }
   if(!o.rev || o.rev<31){ S.classes.TMFL.life=108; }
