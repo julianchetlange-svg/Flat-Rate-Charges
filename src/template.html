@@ -215,6 +215,9 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
       <h3 style="margin-top:14px">Life by asset type</h3>
       <p class="help">Overrides the class life for specific templates. One per line: <code>8K Yard Forklift = 120</code>.</p>
       <textarea class="in" id="lifeByType" style="min-height:60px;width:100%;max-width:420px"></textarea>
+      <h3 style="margin-top:14px">Residual by asset type</h3>
+      <p class="help">Overrides the class residual % for specific templates. One per line: <code>20' Slide Flatbed = 10</code>.</p>
+      <textarea class="in" id="residByType" style="min-height:50px;width:100%;max-width:420px"></textarea>
     </div>
     <div class="panel">
       <h2>How the rate is calculated</h2>
@@ -323,7 +326,8 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 24,
+  rev: 25,
+  residByType: {"20' Slide Flatbed":10},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
@@ -505,7 +509,8 @@ function compute(){
     if(loaner) flags.push(["Loaner","info", S.includeLoaners?"Loaner unit, charged to the store holding it.":"Loaner unit, not charged (loaners off)."]);
     if(fr==null) flags.push(["No funding rate","bad","Enter the funding rate on Assumptions."]);
     const delivered = cost==null ? null : cost + am;
-    const resid = delivered==null ? null : delivered * C.resid/100;
+    const residPct = (S.residByType||{})[a.template] ?? C.resid;
+    const resid = delivered==null ? null : delivered * residPct/100;
     const life = (S.lifeByType||{})[a.template] ?? C.life;
     const base = (delivered==null || fr==null || !life) ? null : pmtAdvance(fr, life, delivered, resid);
     const adval = delivered==null ? null : delivered * S.adValPct/100/12;
@@ -515,7 +520,7 @@ function compute(){
     const maint = UM[rtype] ? UM[rtype].amount : C.maint;
     const age = monthsBetween(a.orig);
     if(age!=null && life && age>life) flags.push(["Past life","info",`In service ${age} months vs ${life}-month life; full rate still applies.`]);
-    return {...a, costEstimated: !!est, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, life, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
+    return {...a, costEstimated: !!est, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, residPct, life, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
             excluded:isExcluded(a.store), isVar:false};
   });
   // store variable
@@ -602,6 +607,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<25){ S.residByType=structuredClone(DEFAULTS.residByType); }
   if(!o.rev || o.rev<24){ S.lifeByType=Object.assign({}, S.lifeByType, {"20' Slide Flatbed":120}); }
   if(!o.rev || o.rev<23){ S.classes.Tractor.life=144; S.classes.Tractor.resid=0; }
   if(!o.rev || o.rev<22){ S.lifeByType=structuredClone(DEFAULTS.lifeByType); }
@@ -1031,6 +1037,8 @@ function renderAssumptions(){
     <td class="num"><input class="in" type="number" step="0.01" data-c="${esc(c)}" data-f="maint" value="${C.maint}"></td></tr>`;}).join("");
   $("classTable").innerHTML = h+"<tbody>"+b+"</tbody>";
   const lt=$("lifeByType"); lt.value=Object.entries(S.lifeByType||{}).map(([k,v])=>k+" = "+v).join("\n");
+  const rbt=$("residByType"); rbt.value=Object.entries(S.residByType||{}).map(([k,v])=>k+" = "+v).join("\n");
+  rbt.onchange=()=>{ const o={}; rbt.value.split(/\n/).forEach(l=>{ const m=l.match(/^(.+?)\s*=\s*([\d.]+)\s*%?\s*$/); if(m && TEMPLATES.includes(m[1].trim())) o[m[1].trim()]=+m[2]; }); S.residByType=o; changed(); };
   lt.onchange=()=>{ const o={}; lt.value.split(/\n/).forEach(l=>{ const m=l.match(/^(.+?)\s*=\s*(\d+)\s*$/); if(m && TEMPLATES.includes(m[1].trim())) o[m[1].trim()]=+m[2]; }); S.lifeByType=o; changed(); };
   $("classTable").querySelectorAll("[data-c]").forEach(el=>el.onchange=()=>{ const C=S.classes[el.dataset.c], f=el.dataset.f;
     C[f] = el.type==="checkbox" ? el.checked : (num(el.value)??0); changed(); });
@@ -1167,7 +1175,7 @@ $("btnExport").onclick = async ()=>{
   ws1["!cols"]=[{wch:8},{wch:26},{wch:7},...Array(11).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, ws1, "Store Summary");
   const assetRow = r=>({"Store":r.store,"Store Name":r.storeName,"Asset":r.asset,"Template":r.template,"Rate Type":r.rtype,"Rate Class":r.cls,"Manufacturer":r.mfr,"Serial":r.serial,"Ownership":r.own,"Status":r.status,"Origination":r.orig,"Age (mo)":r.age,
-    "Cost w/ Tax":r2(r.cost),"Cost Estimated":r.costEstimated?"Y":"","Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":r.life,"Residual %":S.classes[r.cls].resid/100,"Residual Value":r2(r.resid),
+    "Cost w/ Tax":r2(r.cost),"Cost Estimated":r.costEstimated?"Y":"","Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":r.life,"Residual %":r.residPct/100,"Residual Value":r2(r.resid),
     "Indiv. Base Rate":r2(r.ind.base),"Indiv. Ad Valorem":r2(r.ind.adval),"Indiv. Registration":r2(r.ind.reg),"Indiv. Monthly Rate":r2(r.indMonthly),
     "Maint in Rate":r2(r.maint),"Type Rate":r2(r.typeRate),"Monthly Charge":r2(r.monthly),
     "Charged":r.counted?"Y":"N","Flags":r.flags.map(f=>f[0]).join("; ")});
@@ -1224,6 +1232,7 @@ $("btnExport").onclick = async ()=>{
     ["Class","Life (mo)","Residual %","Registration %","GPS","Lytx","Fixed Maint $/mo (no-usage types)"],
     ...CLASS_ORDER.map(c=>{const C=S.classes[c];return [c,C.life,C.resid/100,C.reg/100,C.gps?"Y":"N",C.lytx?"Y":"N",C.maint];}),[],
     ["Life by asset type (overrides class)"],...Object.entries(S.lifeByType||{}).map(([k,v])=>[k,v]),[],
+    ["Residual % by asset type (overrides class)"],...Object.entries(S.residByType||{}).map(([k,v])=>[k,v/100]),[],
     ["Template","Rate Class","Default Aftermarket"],...TEMPLATES.map(t=>[t,S.templateMap[t]||"Unassigned",S.amTemplate[t]??null])];
   const ws5=XLSX.utils.aoa_to_sheet(as); ws5["!cols"]=[{wch:28},{wch:20},{wch:14},{wch:14},{wch:6},{wch:6},{wch:16},{wch:12}];
   XLSX.utils.book_append_sheet(wb, ws5, "Assumptions");
