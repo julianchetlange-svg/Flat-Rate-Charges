@@ -375,13 +375,19 @@ let S = structuredClone(DEFAULTS);
 
 /* ---------- assets ---------- */
 const ASSETS = RAW.map(r=>({store:r[0],storeName:r[1]||"",district:r[2]||"",asset:r[3],template:r[4]||"",mfr:r[5]||"",serial:r[6]||"",
-  own:r[7]||"",status:r[8]||"",orig:r[9]||"",cost:(r[10]==null?null:Number(r[10]))}));
-/* Region-billed units: a unit billed to a region department (761-768) in the 2026 flat-rate files stays charged to that region,
-   even when the asset file shows it at a store (confirmed 11/18/2026: its expense goes to the regional department). */
+  own:r[7]||"",status:r[8]||"",orig:r[9]||"",cost:(r[10]==null?null:Number(r[10])),location:r[11]||""}));
+/* Billing location: the asset list's "Asset Location" column names the department that pays when a unit sits at a store
+   but is billed elsewhere: "762 Region 2", "Region 1 Loaner", "735 Fleet Loaner" (confirmed 11/18/2026: loaners and region
+   units stay billed to the region; the store number only tracks where the unit is). Units with a coded location are charged to
+   that code. Without the column (older asset files), the 2026 flat-rate files' region billing is used instead. */
 const REGION_CODES = new Set(["761","762","763","764","765","766","767","768"]);
-const REGION_BILL = {}; if(OLD) Object.entries(OLD.assets).forEach(([id,e])=>{ if(REGION_CODES.has(e[0])) REGION_BILL[id]=e[0]; });
-const _regionName = {}; ASSETS.forEach(a=>{ if(REGION_CODES.has(a.store) && a.storeName) _regionName[a.store]=a.storeName; });
-ASSETS.forEach(a=>{ const r=REGION_BILL[a.asset]; if(r && a.store!==r){ a.physStore=a.store; a.physName=a.storeName; a.store=r; a.storeName=_regionName[r]||("Region "+(+r-760)); } });
+const BILL_CODES = new Set([...REGION_CODES, "735", "730"]);
+const REGION_BILL = {};
+const _hasLoc = ASSETS.some(a=>a.location);
+if(_hasLoc) ASSETS.forEach(a=>{ const L=String(a.location).trim(); let c=(L.match(/^(\d{3})\b/)||[])[1]; if(!c){ const m=L.match(/^Region\s*(\d)\b/i); if(m) c="76"+m[1]; } if(c && BILL_CODES.has(c) && c!==a.store) REGION_BILL[a.asset]=c; });
+else if(OLD) Object.entries(OLD.assets).forEach(([id,e])=>{ if(REGION_CODES.has(e[0])) REGION_BILL[id]=e[0]; });
+const _regionName = {}; ASSETS.forEach(a=>{ if(BILL_CODES.has(a.store) && a.storeName) _regionName[a.store]=a.storeName; });
+ASSETS.forEach(a=>{ const r=REGION_BILL[a.asset]; if(r && a.store!==r){ a.physStore=a.store; a.physName=a.storeName; a.store=r; a.storeName=_regionName[r]||(REGION_CODES.has(r)?"Region "+(+r-760):r); } });
 if(USAGE) USAGE.units.forEach(u=>{ const r=REGION_BILL[u[0]]; if(r) u[1]=r; });
 const STORE_NAMES = {}; ASSETS.forEach(a=>{ if(!STORE_NAMES[a.store]) STORE_NAMES[a.store]=a.storeName; });
 const TEMPLATES = [...new Set(ASSETS.map(a=>a.template))].sort();
@@ -526,7 +532,7 @@ function compute(){
     const rtype = rt(a.template);
     const maint = UM[rtype] ? UM[rtype].amount : C.maint;
     const age = monthsBetween(a.orig);
-    if(a.physStore) flags.push(["Region billed","info",`Located at store ${a.physStore} ${a.physName||""}; charged to region ${a.store}, where its expense goes.`]);
+    if(a.physStore) flags.push(["Billed elsewhere","info",`Located at store ${a.physStore} ${a.physName||""} (${a.location||"asset location"}); charged to ${a.store} ${a.storeName}, where its expense goes.`]);
     if(age!=null && life && age>life) flags.push(["Past life","info",`In service ${age} months vs ${life}-month life; full rate still applies.`]);
     return {...a, costEstimated: !!est, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, residPct, life, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
             excluded:isExcluded(a.store), isVar:false};

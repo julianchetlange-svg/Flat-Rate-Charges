@@ -32,8 +32,15 @@ MAINT_EXCLUDE = {'694028'}
 def assets(path):
     df = pd.read_excel(path, dtype={'Store Number': str, 'Asset Serial Number': str})
     v = lambda x: None if (x is None or (isinstance(x, float) and math.isnan(x))) else x
-    rows = [[str(r[0]), v(r[1]), v(r[2]), str(r[3]), v(r[4]), v(r[5]), v(r[6]), v(r[7]), v(r[8]), v(r[9]), v(r[10])]
-            for r in df.itertuples(index=False)]
+    cols = ['Store Number', 'Store Name', 'Store District', 'Asset Name', 'Asset Template Name', 'Asset Manufacturer Name',
+            'Asset Serial Number', 'Asset Ownership', 'Asset Status', 'Asset Date of Origination', 'Asset Original Value']
+    loc = 'Asset Location' if 'Asset Location' in df.columns else None   # physical location / billing guidance (11/18/2026 file on)
+    rows = []
+    for _, r in df.iterrows():
+        row = [str(r[cols[0]])] + [v(r[c]) for c in cols[1:3]] + [str(r[cols[3]]).split('.')[0]] + [v(r[c]) for c in cols[4:]]
+        if row[10] is not None and row[10] <= 0: row[10] = None          # a zero cost is a missing cost
+        row.append(v(r[loc]) if loc else None)
+        rows.append(row)
     (DATA / 'assets.json').write_text(json.dumps(rows, separators=(',', ':')))
     return len(rows)
 
