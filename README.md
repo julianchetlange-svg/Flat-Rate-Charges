@@ -72,3 +72,7 @@ python scripts/build_html.py
 ```
 
 The back-test compares new rates with old billing excluding damages and excluded locations (450 Millworks was billed Jan–Aug). Per-asset mileage and camera fees are estimated from Geotab miles because the old method billed them by store.
+
+## Refreshing Fexa maintenance
+
+When a newer Fexa Asset Spend export arrives before the CPM report is rebuilt, `scripts/refresh_fexa.py` swaps the new maintenance into a copy of the CPM report's data (same filtering rules), then `build_data.py` rebuilds the rates from that copy. Last refresh: Asset_Spend_Data_2026_11_18_2026.xlsx (Jan–Oct 2026, $11.98M source).
