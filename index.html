@@ -145,7 +145,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <section class="view" id="v-maint">
     <div class="panel" style="margin-bottom:12px">
       <h2>Maintenance cost per mile / hour by asset type</h2>
-      <p class="help" style="margin:0">These rates replace fixed monthly maintenance for every asset type with miles or hours. Maintenance in the rate = type maintenance rate × the type's average monthly miles or hours per unit. Type rate = simple average of each unit's $/mile or $/hour (or, if set on Assumptions, weighted: total spend ÷ total usage). Source: YTD Cost per Mile / Hour analysis (Jan–Oct 2026, built 11/8): YTD maintenance spend ÷ YTD miles for trucks, tractors and light-duty vehicles, or ÷ YTD hours for forklifts and TMFLs. Only units that logged miles or hours in every month they were active count; units with missing telematics or hour months are left out of the rate because their spend would be divided by too few miles. The rate uses charge locations; a type with no charge units uses all locations. Only Fexa work-order maintenance spend is used; fuel, depreciation, registration and taxes are excluded. Pickups are locked at $0.14/mile and cars at $0.09/mile because their Fexa maintenance data is incomplete (set on Assumptions). Forklift and TMFL hours for Jan–Aug are estimates (DVIR actuals start 8/24). Trailers, carts, the sweeper and other units with no miles or hours use their Fexa average per unit per month (shown on Rate by Asset Type).</p>
+      <p class="help" style="margin:0">Maintenance in the rate comes only from Fexa work-order spend, on a <b>rolling 12 months (Nov 2025–Oct 2026)</b>. Fuel, propane, depreciation, registration and taxes are left out. Each year the rate is reset on the latest rolling 12. <b>Trucks, tractors and light-duty vehicles</b> are charged per mile: type rate = total Fexa spend ÷ total Geotab miles (weighted; simple average of unit rates can be set on Assumptions), times the type's average monthly miles per unit. Only units with miles in every month they were active count. A Nov–Dec 2025 month counts for a unit only where Geotab has its miles. <b>Forklifts, TMFLs, trailers and other equipment</b> are charged a flat monthly Fexa average per unit-month (there are no Nov–Dec 2025 hour readings, and TMFL hours are weak); their per-hour figures below are Jan–Oct and for reference only. Rates use charge locations; a type with no charge units uses all locations. <b>Locked:</b> pickups $0.14/mile and cars $0.09/mile (incomplete Fexa data), and the 24' Conveyor at its Jan–Oct $0.765/mile (one $9.1K Dec 2025 repair on its only store unit). The 16' Van Body borrows the 24' Van Body rate. 2027 replacement tractors are blended in at $0.35/mile (new, under warranty). Spend source: Fexa Asset Spend exports of 11/18/2026 (Jan–Oct 2026) and Nov–Dec 2025.</p>
     </div>
     <div class="toolbar">
       <select id="mMeas"><option value="">Miles and hours</option><option value="mile">Per mile</option><option value="hour">Per hour</option></select>
@@ -193,7 +193,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
     <div class="grid2">
       <div class="panel">
         <h2>Rate year and funding</h2>
-        <p class="help">Confirm these each year before building rates. The 2027 rate is built from 2026 data (asset list as of 11/13/2026, Jan–Oct 2026 Fexa maintenance and miles/hours).</p>
+        <p class="help">Confirm these each year before building rates. The 2027 rate is built from 2026 data: asset list as of 11/18/2026; Fexa maintenance and Geotab miles on a rolling 12 months (Nov 2025–Oct 2026).</p>
         <div class="form" id="formGlobal"></div>
       </div>
       <div class="panel">
@@ -227,7 +227,7 @@ Base rate        = PMT(funding rate ÷ 12, life months, −delivered cost, resid
 Ad valorem       = ad valorem % × delivered cost ÷ 12
 Registration     = class registration % × delivered cost ÷ 12
 GPS / Lytx       = flat monthly fee where the class is a road unit
-Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (from the YTD CPM analysis)
+Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (Fexa, rolling 12 months Nov 2025–Oct 2026)
                    types with no miles/hours (trailers, carts, sweeper, reach truck): Fexa maintenance ÷ active unit-months
                    fixed class amount only where a type has no Fexa history
 Individual rate  = base + ad valorem + registration + GPS + Lytx + fixed maint.
@@ -790,8 +790,8 @@ function renderMaint(){
     {k:"meas",h:"Per",f:r=>(S.monthlyMaint||[]).includes(r.t)?`${r.meas==="mile"?"Mile":"Hour"} <span class="pill">charged flat monthly: ${money((CALC.TYPE[r.t]||{}).maint,2)}</span>`:(r.meas==="mile"?"Mile":"Hour")},
     {k:"units",h:"Charge units",num:1,f:r=>fmt(r.units,0)},
     {k:"n",h:"Units w/ usage",num:1,f:r=>fmt(r.n,0)+(r.basis==="all"?' <span class="pill ex" title="No charge units with usage; all locations used">all locs</span>':"")+(r.n&&r.n<5?' <span class="pill warn" title="Fewer than 5 units: rate is thin">small</span>':"")},
-    {k:"maint",h:"YTD maint.",num:1,f:r=>money(r.maint,0)},
-    {k:"use",h:"YTD miles / hours",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
+    {k:"maint",h:"Maint. (rolling 12; hours: Jan–Oct)",num:1,f:r=>money(r.maint,0)},
+    {k:"use",h:"Miles / hours (same period)",num:1,f:r=>fmt(r.use,0)+" "+u(r)},
     {k:"rate",h:"Type maint. rate",num:1,f:r=>`<b>${r.rate==null?"—":"$"+fmt(r.rate,r.meas==="mile"?3:2)}</b> /${u(r)}`+(r.locked?' <span class="pill info" title="Locked rate: maintenance data incomplete">locked</span>':"")+(r.borrowedFrom?` <span class="pill info" title="Uses the ${esc(r.borrowedFrom)} rate">from ${esc(r.borrowedFrom)}</span>`:"")},
     {k:"mean",h:"Simple avg.",num:1,f:r=>r.mean==null?"—":"$"+fmt(r.mean,r.meas==="mile"?3:2)},
     {k:"wtd",h:"Weighted",num:1,f:r=>r.wtd==null?"—":"$"+fmt(r.wtd,r.meas==="mile"?3:2)},
@@ -1217,7 +1217,7 @@ $("btnExport").onclick = async ()=>{
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
   const mr = maintRows().filter(r=>r.n>0).map(r=>({"Asset Type":r.t,"Rate Class":r.cls,"Per":r.meas==="mile"?"Mile":"Hour","Basis":r.basis==="charge"?"Charge locations":"All locations",
-    "Charge Units":r.units,"Units w/ Usage":r.n,"YTD Maintenance":r2(r.maint),"YTD Miles/Hours":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
+    "Charge Units":r.units,"Units w/ Usage":r.n,"Maintenance (rolling 12; hours Jan-Oct)":r2(r.maint),"Miles/Hours (same period)":Math.round(r.use),"Maint Rate":r.rate,"All-Locations Rate":r.rateAll,"Median Unit Rate":r.med,
     "Avg Monthly Use/Unit":r.mo,"Implied Maint/Unit/Mo":r2(r.implied),"Flat-Rate Maint/Unit/Mo":r2(r.current),"Implied − Flat Rate":r2(r.diff),"Note":(r.locked?"Locked rate; ":"")+(r.meas==="hour"?"Jan–Aug hours estimated":"")}));
   const wsM=XLSX.utils.json_to_sheet(mr); wsM["!cols"]=[{wch:28},{wch:18},{wch:6},{wch:16},...Array(12).fill({wch:13}),{wch:36}];
   XLSX.utils.book_append_sheet(wb, wsM, "Maint per Mile-Hour");
