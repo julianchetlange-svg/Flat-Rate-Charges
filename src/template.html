@@ -326,12 +326,12 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 36,
+  rev: 37,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way","6K Yard Forklift","8K Yard Forklift","10K Yard Forklift","3K Yard Forklift","4K Yard Forklift"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak; forklifts have no Nov-Dec 2025 hours for the rolling 12)
   planned: {on:true, template:"Tractor TA", replace:["419878","748026","747083","748048","748015","750030","749004","750034","747106","750006"],
-            cost:163472, newRate:0.615, when:"Jan 2027"},
+            cost:163472, newRate:0.609, when:"Jan 2027"},   // newRate = Fexa $/mile of store tractors originated 2023+ (11 units, refreshed spend through Oct 2026)
   maintAvg: "weighted",
   allInMonths: 36,      // units younger than this already carry aftermarket in their cost (all-in delivered cost since ~Nov 2023)
   typeGroups: {"24' TA Flatbed":"24' TA Flatbed & Slide","24' TA Slide Flatbed":"24' TA Flatbed & Slide",
@@ -624,6 +624,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<37){ S.planned=Object.assign({}, S.planned, {newRate:0.609}); }
   if(!o.rev || o.rev<36){ S.planned=Object.assign({}, S.planned, {replace:structuredClone(DEFAULTS.planned.replace)}); }
   if(!o.rev || o.rev<35){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
   if(!o.rev || o.rev<34){ S.lifeByType=Object.assign({}, S.lifeByType, {"16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96}); S.residByType=Object.assign({}, S.residByType, {"16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15}); }
