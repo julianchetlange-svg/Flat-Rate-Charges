@@ -164,7 +164,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
     <div class="panel"><h2>By month: new rates vs. what 2026 billed</h2><p class="help">Old = the monthly flat-rate files sent to accounting: base flat rate by asset class, $0.42 per store mile, and $36 per Lytx camera. Damages and the excluded sites (450 Millworks was billed Jan–Aug) are shown but left out of the comparison. New rates cover every flat-rate location, including regions and offices.</p><div class="tablewrap" style="max-height:none"><table id="btMonth"></table></div></div>
     <div class="panel"><h2>By asset type, Jan–Oct</h2><p class="help">Old base is billed by asset. The $0.42/mile and camera fees were billed by store, so they are estimated for each unit here: $0.42 × the unit's Geotab miles, and $36 for each month a road unit was billed. Totals tie to the billed amounts within a few percent (see the miles check).</p><div class="tablewrap"><table id="btType"></table></div></div>
     <div class="panel"><h2>Miles check: billed vs. Geotab</h2><p class="help">Miles billed at $0.42 against Geotab miles for mile-rated units at the same locations. Geotab miles follow each unit's current store, so a unit that moved during the year shifts miles between stores, but totals are comparable.</p><div class="tablewrap" style="max-height:none"><table id="btMiles"></table></div></div>
-    <div class="panel"><h2>By store</h2><p class="help">"New, 2026 billing location" puts each unit's new charge where 2026 billed it. Units billed to a region office (761–768) sit at a store in the asset file, so "current location" moves them to that store. The accounting columns are the Jan–Sep allocation JEs and actual expense.</p>
+    <div class="panel"><h2>By store</h2><p class="help">"New, 2026 billing location" puts each unit's new charge where 2026 billed it. Units billed to a region department (761–768) are charged to that region even when the asset file shows them at a store, because their expense goes to the region. The accounting columns are the Jan–Sep allocation JEs and actual expense.</p>
       <div class="toolbar"><input type="search" id="btSearch" placeholder="Search store or asset…"><span class="muted small" id="btNote"></span></div>
       <div class="tablewrap"><table id="btStore"></table></div></div>
     <div class="panel"><h2>By asset, Jan–Oct</h2><p class="help muted small" id="btAssetNote"></p><div class="tablewrap"><table id="btAsset"></table></div></div>
@@ -376,6 +376,13 @@ let S = structuredClone(DEFAULTS);
 /* ---------- assets ---------- */
 const ASSETS = RAW.map(r=>({store:r[0],storeName:r[1]||"",district:r[2]||"",asset:r[3],template:r[4]||"",mfr:r[5]||"",serial:r[6]||"",
   own:r[7]||"",status:r[8]||"",orig:r[9]||"",cost:(r[10]==null?null:Number(r[10]))}));
+/* Region-billed units: a unit billed to a region department (761-768) in the 2026 flat-rate files stays charged to that region,
+   even when the asset file shows it at a store (confirmed 11/18/2026: its expense goes to the regional department). */
+const REGION_CODES = new Set(["761","762","763","764","765","766","767","768"]);
+const REGION_BILL = {}; if(OLD) Object.entries(OLD.assets).forEach(([id,e])=>{ if(REGION_CODES.has(e[0])) REGION_BILL[id]=e[0]; });
+const _regionName = {}; ASSETS.forEach(a=>{ if(REGION_CODES.has(a.store) && a.storeName) _regionName[a.store]=a.storeName; });
+ASSETS.forEach(a=>{ const r=REGION_BILL[a.asset]; if(r && a.store!==r){ a.physStore=a.store; a.physName=a.storeName; a.store=r; a.storeName=_regionName[r]||("Region "+(+r-760)); } });
+if(USAGE) USAGE.units.forEach(u=>{ const r=REGION_BILL[u[0]]; if(r) u[1]=r; });
 const STORE_NAMES = {}; ASSETS.forEach(a=>{ if(!STORE_NAMES[a.store]) STORE_NAMES[a.store]=a.storeName; });
 const TEMPLATES = [...new Set(ASSETS.map(a=>a.template))].sort();
 const storeSort = (a,b)=>{const na=parseFloat(a),nb=parseFloat(b);return (na-nb)||String(a).localeCompare(String(b));};
@@ -519,6 +526,7 @@ function compute(){
     const rtype = rt(a.template);
     const maint = UM[rtype] ? UM[rtype].amount : C.maint;
     const age = monthsBetween(a.orig);
+    if(a.physStore) flags.push(["Region billed","info",`Located at store ${a.physStore} ${a.physName||""}; charged to region ${a.store}, where its expense goes.`]);
     if(age!=null && life && age>life) flags.push(["Past life","info",`In service ${age} months vs ${life}-month life; full rate still applies.`]);
     return {...a, costEstimated: !!est, replaced, planned:!!a.planned, rtype, cls, cost, costOverridden: ov!=null, am, delivered, resid, residPct, life, base, adval, reg, gps, lytx, maint, variable:0, age, flags, loaner, counted,
             excluded:isExcluded(a.store), isVar:false};
