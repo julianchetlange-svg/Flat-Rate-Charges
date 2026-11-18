@@ -513,7 +513,7 @@ function compute(){
       flags.push(["All-in cost","info",`Under ${S.allInMonths} months old (${ageAm<0?"new":ageAm+" mo"}); cost is all-in delivered, so ${money(am,0)} aftermarket not added.`]);
       am = 0;
     }
-    if(est) flags.push(["Estimated cost","info",`No Asset Original Value; using ${money(est.cost,0)} = ${est.basis}. Replaced when the next asset upload has the real cost.`]);
+    if(est) flags.push(["Estimated cost","info",`No Asset Original Value; using ${money(est.cost,0)} = ${est.basis}. Original cost unknown (very old unit); this estimate is used going forward.`]);
     if(cost==null) flags.push(["No cost","warn","Asset Original Value is blank (#N/A). Charged the asset-type average; not used in the average. Enter a cost on Aftermarket & Costs."]);
     if(cost!=null && am && Math.sign(am)!==Math.sign(cost)){
       flags.push(["Aftermarket sign","warn",`Aftermarket ${money(am)} had the opposite sign of cost; flipped so it adds.`]);
