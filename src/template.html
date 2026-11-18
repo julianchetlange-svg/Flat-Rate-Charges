@@ -326,9 +326,9 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 28,
+  rev: 29,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5},   // template -> residual %, overrides the class residual
-  lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
+  lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
   planned: {on:true, template:"Tractor TA", replace:["747095","747003","748048","748018","748026","748017","748015","748021","748019","748023"],
             cost:163472, newRate:0.615, when:"Jan 2027"},
@@ -607,6 +607,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<29){ S.lifeByType=Object.assign({}, S.lifeByType, {"Pickup":96}); }
   if(!o.rev || o.rev<28){ S.classes.TMFL.life=120; S.classes.TMFL.resid=15; }
   if(!o.rev || o.rev<27){ S.lifeByType=Object.assign({}, S.lifeByType, {"12' Slide Flatbed":144}); S.residByType=Object.assign({}, S.residByType, {"12' Slide Flatbed":5}); }
   if(!o.rev || o.rev<26){ S.classes.Tractor.resid=10; }
