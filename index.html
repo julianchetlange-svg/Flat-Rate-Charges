@@ -326,7 +326,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 25,
+  rev: 26,
   residByType: {"20' Slide Flatbed":10},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak)
@@ -344,7 +344,7 @@ const DEFAULTS = {
     "Forklift":           {life:96,  resid:15, reg:0,   gps:false, lytx:false, maint:562, variable:false},
     "TMFL":               {life:96,  resid:20, reg:0,   gps:false, lytx:false, maint:318, variable:false},
     "Truck":              {life:96,  resid:15, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
-    "Tractor":            {life:144, resid:0,  reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
+    "Tractor":            {life:144, resid:10, reg:0.6, gps:true,  lytx:true,  maint:0,   variable:true},
     "Light-Duty Vehicle": {life:72,  resid:20, reg:0.2, gps:true,  lytx:true,  maint:100, variable:false},
     "Trailer":            {life:180, resid:5,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
     "Specialty Trailer":  {life:180, resid:0,  reg:0.2, gps:false, lytx:false, maint:425, variable:false},
@@ -607,6 +607,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<26){ S.classes.Tractor.resid=10; }
   if(!o.rev || o.rev<25){ S.residByType=structuredClone(DEFAULTS.residByType); }
   if(!o.rev || o.rev<24){ S.lifeByType=Object.assign({}, S.lifeByType, {"20' Slide Flatbed":120}); }
   if(!o.rev || o.rev<23){ S.classes.Tractor.life=144; S.classes.Tractor.resid=0; }
