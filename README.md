@@ -79,4 +79,4 @@ When a newer Fexa Asset Spend export arrives before the CPM report is rebuilt, `
 
 ## Rolling 12-month maintenance
 
-Maintenance is set on a rolling 12 months (decided 11/18/2026); the annual rate is adjusted up or down on it instead of a quarterly review. `scripts/prior_spend.py` loads the prior Nov–Dec Fexa spend into `data/prior_spend.json`, and `build_data.py` adds it to the unit-month rates (forklifts, TMFLs, trailers, other equipment). Per-mile truck rates move to rolling 12 when Nov–Dec 2025 Geotab miles are loaded.
+Maintenance is set on a rolling 12 months (decided 11/18/2026); the annual rate is adjusted up or down on it instead of a quarterly review. `scripts/prior_spend.py` loads the prior Nov–Dec Fexa spend into `data/prior_spend.json`, and `build_data.py` adds it to the unit-month rates (forklifts, TMFLs, trailers, other equipment). Per-mile truck rates use `data/prior_miles.json` (`scripts/prior_miles.py`, Geotab Nov–Dec 2025); a prior month counts for a unit only when Geotab has its miles that month.

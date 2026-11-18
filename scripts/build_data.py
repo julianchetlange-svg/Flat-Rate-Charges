@@ -74,8 +74,25 @@ def cpm(path):
     return d
 
 
+def _prior(name):
+    f = DATA / name
+    return json.loads(f.read_text()) if f.exists() else {}
+
+
+def roll12(a):
+    """Rolling-12 arrays for a mile-rated unit: Nov-Dec 2025 (data/prior_miles.json + data/prior_spend.json) ahead
+    of Jan-Oct 2026. A prior month counts only when Geotab has miles for the unit that month; months without a
+    reading are left out (spend and miles both), so a missing reading never inflates the rate."""
+    PM, PS = _prior('prior_miles.json'), _prior('prior_spend.json')
+    mi, mt, act = list(a['mi']), list(a['mrec'] if a.get('mrec') is not None else a['maint']), list(a['act'])
+    if not PM: return mi, mt, act
+    pm, ps = PM.get(a['id'], {}), PS.get(a['id'], {})
+    pre = [(pm.get(k, 0), ps.get(k, 0)) for k in ('nov', 'dec') if pm.get(k, 0) > 0]
+    return [x[0] for x in pre] + mi, [x[1] for x in pre] + mt, [1] * len(pre) + act
+
+
 def usage(a):
-    if a['c'] in ('Truck', 'LD Vehicle'): return a['mi'], 'mile'
+    if a['c'] in ('Truck', 'LD Vehicle'): return roll12(a)[0], 'mile'
     if a['c'] in ('Forklift', 'TMFL'): return a['hr'], 'hour'
     return None, None
 
@@ -95,12 +112,13 @@ def maint_rates(d):
         ks = ['all', 'ch'] if a['s'] not in EX else ['all']
         nmo = sum(1 for x in arr if x > 0)
         for k in ks: anym[t][k][0] += use; anym[t][k][1] += nmo
-        if any(a['act'][i] and arr[i] <= 0 for i in range(len(arr))):
+        actv = roll12(a)[2] if meas == 'mile' else a['act']
+        if any(actv[i] and arr[i] <= 0 for i in range(len(arr))):
             for k in ks: o[k]['gap'] += 1
             continue
         if meas == 'hour' and a.get('he') == 1: o['he'] += 1
-        m = sum(a['mrec']) if a.get('mrec') is not None else sum(a['maint'])  # recorded Fexa spend only
-        am = sum(a['act']) or len(arr)
+        m = sum(roll12(a)[1]) if meas == 'mile' else (sum(a['mrec']) if a.get('mrec') is not None else sum(a['maint']))  # recorded Fexa spend only
+        am = sum(actv) or len(arr)
         for k in ks:
             b = o[k]; b['units'] += 1; b['m'] += m; b['u'] += use; b['am'] += am; b['rates'].append(m / use)
     out = []
@@ -158,9 +176,9 @@ def tractor_units(d):
     out = []
     for a in d['assets']:
         if a['t'] not in ('Tractor TA', 'Tractor SA'): continue
-        arr = a['mi']; use = sum(arr)
-        ok = use > 0 and not any(a['act'][i] and arr[i] <= 0 for i in range(len(arr)))
-        out.append([a['id'], a['s'], round(sum(a['maint']), 2), round(use, 1), sum(a['act']), 1 if ok else 0, a['o'] or '', a['t']])
+        arr, mt, act = roll12(a); use = sum(arr)
+        ok = use > 0 and not any(act[i] and arr[i] <= 0 for i in range(len(arr)))
+        out.append([a['id'], a['s'], round(sum(mt), 2), round(use, 1), sum(act), 1 if ok else 0, a['o'] or '', a['t']])
     (DATA / 'tractor_units.json').write_text(json.dumps(out, separators=(',', ':')))
 
 

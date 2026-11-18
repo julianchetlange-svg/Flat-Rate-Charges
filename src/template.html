@@ -326,7 +326,7 @@ const DEFAULTS = {
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 38,
+  rev: 39,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: ["Truck Mounted Forklift & 4-Way","6K Yard Forklift","8K Yard Forklift","10K Yard Forklift","3K Yard Forklift","4K Yard Forklift"],   // rate types with miles/hours data charged a flat monthly Fexa average instead (TMFL hour readings are weak; forklifts have no Nov-Dec 2025 hours for the rolling 12)
@@ -337,7 +337,7 @@ const DEFAULTS = {
   typeGroups: {"24' TA Flatbed":"24' TA Flatbed & Slide","24' TA Slide Flatbed":"24' TA Flatbed & Slide",
                "Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way","4-Way Truck Mounted Forklift":"Truck Mounted Forklift & 4-Way",
                "Tractor TA":"Tractor (TA & SA)","Tractor SA":"Tractor (TA & SA)"},
-  lockedMaint: {"Pickup": 0.14, "Car": 0.09},
+  lockedMaint: {"Pickup": 0.14, "Car": 0.09, "24' Conveyor": 0.765},   // 24' Conveyor: Jan-Oct 2026 rate; rolling 12 would be $2.22/mile from one $9.1K Dec 2025 repair on its only store unit (747105)
   maintSource: {"16' Van Body": "24' Van Body"},   // type -> borrow this type's $/mile (major-repair anomaly on the only 16' unit)   // asset type -> locked $/mile or $/hour (no full maintenance data)   // simple = average of unit $/mi-hr rates; weighted = total spend ÷ total usage
   excluded: ["353","355","355CD","356","359","489","450","950"],
   classes: {
@@ -441,8 +441,8 @@ function plannedMaint(m, mem){
   const P=S.planned, rep=new Set(P.replace.map(String)), ex=new Set(S.excluded);
   const base = TUNITS.filter(u=>u.ok && !ex.has(u.s) && !rep.has(u.id) && mem.includes(u.t));
   const mo0 = m.ch && m.ch.mo ? m.ch.mo : (base.reduce((x,u)=>x+u.use,0)/Math.max(1,base.reduce((x,u)=>x+u.am,0)));
-  const add = P.replace.map(plannedPlace).filter(pl=>pl && !ex.has(pl.store)).length, nm = (P.newRate||0)*mo0*10, nu = mo0*10;
-  const units = base.length+add, maint = base.reduce((x,u)=>x+u.m,0)+add*nm, use = base.reduce((x,u)=>x+u.use,0)+add*nu, am = base.reduce((x,u)=>x+u.am,0)+add*10;
+  const add = P.replace.map(plannedPlace).filter(pl=>pl && !ex.has(pl.store)).length, nm = (P.newRate||0)*mo0*12, nu = mo0*12;   // 12 months: rolling-12 basis
+  const units = base.length+add, maint = base.reduce((x,u)=>x+u.m,0)+add*nm, use = base.reduce((x,u)=>x+u.use,0)+add*nu, am = base.reduce((x,u)=>x+u.am,0)+add*12;
   const mean = (base.reduce((x,u)=>x+u.m/u.use,0) + add*(P.newRate||0))/units;
   const ch = {units, gap:m.ch?m.ch.gap:0, maint, use, am, rate: maint/use, mean, med:null, mo: use/am, planned:true, replaced:base.length, added:add};
   return Object.assign({}, m, {ch});
@@ -624,6 +624,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<17){ S.allInMonths=36; }
   if(!o.rev || o.rev<18){ S.fundingRate=6; }
   if(!o.rev || o.rev<20){ S.year=2027; }
+  if(!o.rev || o.rev<39){ S.lockedMaint=Object.assign({}, S.lockedMaint, {"24' Conveyor":0.765}); }
   if(!o.rev || o.rev<38){ S.planned=Object.assign({}, S.planned, {newRate:0.35}); }
   if(!o.rev || o.rev<37){ S.planned=Object.assign({}, S.planned, {newRate:0.609}); }
   if(!o.rev || o.rev<36){ S.planned=Object.assign({}, S.planned, {replace:structuredClone(DEFAULTS.planned.replace)}); }
