@@ -158,7 +158,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <section class="view" id="v-backtest">
     <div class="panel" style="margin-bottom:12px">
       <h2>Back-test: the 2027 rates applied to Jan–Oct 2026 usage vs. what 2026 billed</h2>
-      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + ad valorem + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
+      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
     </div>
     <div class="kpis" id="btKpis"></div>
     <div class="panel"><h2>By month: new rates vs. what 2026 billed</h2><p class="help">Old = the monthly flat-rate files sent to accounting: base flat rate by asset class, $0.42 per store mile, and $36 per Lytx camera. Damages and the excluded sites (450 Millworks was billed Jan–Aug) are shown but left out of the comparison. New rates cover every flat-rate location, including regions and offices.</p><div class="tablewrap" style="max-height:none"><table id="btMonth"></table></div></div>
@@ -224,7 +224,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
       <div class="formula">Delivered cost   = equipment cost with tax (Asset Original Value, or override) + aftermarket
 Residual value   = delivered cost × residual %
 Base rate        = PMT(funding rate ÷ 12, life months, −delivered cost, residual value, 1)   ← payment in advance, paid down to residual
-Ad valorem       = ad valorem % × delivered cost ÷ 12
+Ad valorem       = ad valorem % × delivered cost ÷ 12   (0% for 2027: not a vehicle expense)
 Registration     = class registration % × delivered cost ÷ 12
 GPS / Lytx       = flat monthly fee where the class is a road unit
 Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (Fexa, rolling 12 months Nov 2025–Oct 2026)
@@ -322,11 +322,11 @@ const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","T
 const DEFAULTS = {
   year: 2027,
   fundingRate: 6,
-  adValPct: 0.8,
+  adValPct: 0,   // ad valorem removed 11/20/2026: accounting says it does not roll under vehicle expense
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 44,
+  rev: 45,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: [],   // rate types with miles/hours data charged a flat monthly Fexa average instead. TMFL back to per hour (11/19/2026); hour readings to be shored up before 2027 go-live
@@ -626,6 +626,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<20){ S.year=2027; }
   if(!o.rev || o.rev<43){ S.monthlyMaint=["Truck Mounted Forklift & 4-Way"]; }
   if(!o.rev || o.rev<44){ S.monthlyMaint=[]; }
+  if(!o.rev || o.rev<45){ S.adValPct=0; }
   if(!o.rev || o.rev<42){ S.classes.TMFL.resid=10; S.classes.Trailer.resid=0; S.classes["Specialty Trailer"].resid=0; }
   if(!o.rev || o.rev<41){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<40){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
