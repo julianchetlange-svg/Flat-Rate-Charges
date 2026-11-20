@@ -224,7 +224,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
       <div class="formula">Delivered cost   = equipment cost with tax (Asset Original Value, or override) + aftermarket
 Residual value   = delivered cost × residual %
 Base rate        = PMT(funding rate ÷ 12, life months, −delivered cost, residual value, 1)   ← payment in advance, paid down to residual
-Buffer           = buffer % × delivered cost ÷ 12   (0.25% for 2027, covers discrepancies; replaces ad valorem, which is not a vehicle expense)
+Buffer           = buffer % × delivered cost ÷ 12   (0.40% for 2027, covers discrepancies; replaces ad valorem, which is not a vehicle expense)
 Registration     = class registration % × delivered cost ÷ 12
 GPS / Lytx       = flat monthly fee where the class is a road unit
 Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (Fexa, rolling 12 months Nov 2025–Oct 2026)
@@ -322,11 +322,11 @@ const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","T
 const DEFAULTS = {
   year: 2027,
   fundingRate: 6,
-  adValPct: 0.25,   // buffer for discrepancies (11/20/2026); replaces ad valorem, which accounting says does not roll under vehicle expense
+  adValPct: 0.4,   // buffer for discrepancies (11/20/2026); replaces ad valorem, which accounting says does not roll under vehicle expense
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 46,
+  rev: 47,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: [],   // rate types with miles/hours data charged a flat monthly Fexa average instead. TMFL back to per hour (11/19/2026); hour readings to be shored up before 2027 go-live
@@ -628,6 +628,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<44){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<45){ S.adValPct=0; }
   if(!o.rev || o.rev<46){ S.adValPct=0.25; }
+  if(!o.rev || o.rev<47){ S.adValPct=0.4; }
   if(!o.rev || o.rev<42){ S.classes.TMFL.resid=10; S.classes.Trailer.resid=0; S.classes["Specialty Trailer"].resid=0; }
   if(!o.rev || o.rev<41){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<40){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
