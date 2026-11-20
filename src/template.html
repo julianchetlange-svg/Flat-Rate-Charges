@@ -158,7 +158,7 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
   <section class="view" id="v-backtest">
     <div class="panel" style="margin-bottom:12px">
       <h2>Back-test: the 2027 rates applied to Jan–Oct 2026 usage vs. what 2026 billed</h2>
-      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
+      <p class="help" style="margin:0">Each unit is billed for the months it was in service at its current store: the asset-type fixed charge (base + buffer + registration + GPS + Lytx) plus maintenance at the type's $/mile or $/hour × that month's actual miles or hours (pickups $0.14, cars $0.09). Months with no telematics or hour reading use the unit's own average month. Trailers, carts, sweeper, reach truck and scissor lifts pay the flat monthly maintenance. Jan–Aug forklift/TMFL hours are estimates. Old = what the 2026 monthly flat-rate files billed (Jan–Oct). Accounting's allocation JEs and actual expense (through September) are at the bottom. Fuel is outside both.</p>
     </div>
     <div class="kpis" id="btKpis"></div>
     <div class="panel"><h2>By month: new rates vs. what 2026 billed</h2><p class="help">Old = the monthly flat-rate files sent to accounting: base flat rate by asset class, $0.42 per store mile, and $36 per Lytx camera. Damages and the excluded sites (450 Millworks was billed Jan–Aug) are shown but left out of the comparison. New rates cover every flat-rate location, including regions and offices.</p><div class="tablewrap" style="max-height:none"><table id="btMonth"></table></div></div>
@@ -224,13 +224,13 @@ textarea.in{font:12px/1.4 "IBM Plex Mono",monospace;width:100%;min-height:90px;p
       <div class="formula">Delivered cost   = equipment cost with tax (Asset Original Value, or override) + aftermarket
 Residual value   = delivered cost × residual %
 Base rate        = PMT(funding rate ÷ 12, life months, −delivered cost, residual value, 1)   ← payment in advance, paid down to residual
-Ad valorem       = ad valorem % × delivered cost ÷ 12   (0% for 2027: not a vehicle expense)
+Buffer           = buffer % × delivered cost ÷ 12   (0.25% for 2027, covers discrepancies; replaces ad valorem, which is not a vehicle expense)
 Registration     = class registration % × delivered cost ÷ 12
 GPS / Lytx       = flat monthly fee where the class is a road unit
 Maintenance      = type maint. $/mile or $/hour × type avg monthly miles or hours per unit  (Fexa, rolling 12 months Nov 2025–Oct 2026)
                    types with no miles/hours (trailers, carts, sweeper, reach truck): Fexa maintenance ÷ active unit-months
                    fixed class amount only where a type has no Fexa history
-Individual rate  = base + ad valorem + registration + GPS + Lytx + fixed maint.
+Individual rate  = base + buffer + registration + GPS + Lytx + fixed maint.
 Asset-type rate  = simple average of the individual rates of that type's priced units at charge locations
 Monthly charge   = asset-type rate · Annual = monthly × 12</div>
     </div>
@@ -322,11 +322,11 @@ const CLASS_ORDER = ["Forklift","TMFL","Truck","Tractor","Light-Duty Vehicle","T
 const DEFAULTS = {
   year: 2027,
   fundingRate: 6,
-  adValPct: 0,   // ad valorem removed 11/20/2026: accounting says it does not roll under vehicle expense
+  adValPct: 0.25,   // buffer for discrepancies (11/20/2026); replaces ad valorem, which accounting says does not roll under vehicle expense
   gps: 26, lytx: 36,
   varRate: 0.0425,
   includeLoaners: true,
-  rev: 45,
+  rev: 46,
   residByType: {"20' Slide Flatbed":10, "12' Slide Flatbed":5, "Pickup":15, "8K Yard Forklift":10, "10K Yard Forklift":10, "16' Conveyor":10, "24' Conveyor":10, "16' Van Body":10, "24' Van Body":10, "3K Yard Forklift":10, "4K Yard Forklift":10, "Car":15},   // template -> residual %, overrides the class residual
   lifeByType: {"8K Yard Forklift":120, "10K Yard Forklift":120, "20' Slide Flatbed":120, "12' Slide Flatbed":144, "Pickup":96, "16' Conveyor":144, "24' Conveyor":144, "16' Van Body":120, "24' Van Body":120, "3K Yard Forklift":120, "4K Yard Forklift":120, "Car":96},   // template -> life in months, overrides the class life (8K/10K forklifts run ~64-74 hrs/month, ~10-12 years to 9,000 hours)
   monthlyMaint: [],   // rate types with miles/hours data charged a flat monthly Fexa average instead. TMFL back to per hour (11/19/2026); hour readings to be shored up before 2027 go-live
@@ -627,6 +627,7 @@ function merge(o){ if(!o||typeof o!=="object") return; const base=structuredClon
   if(!o.rev || o.rev<43){ S.monthlyMaint=["Truck Mounted Forklift & 4-Way"]; }
   if(!o.rev || o.rev<44){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<45){ S.adValPct=0; }
+  if(!o.rev || o.rev<46){ S.adValPct=0.25; }
   if(!o.rev || o.rev<42){ S.classes.TMFL.resid=10; S.classes.Trailer.resid=0; S.classes["Specialty Trailer"].resid=0; }
   if(!o.rev || o.rev<41){ S.monthlyMaint=[]; }
   if(!o.rev || o.rev<40){ S.monthlyMaint=structuredClone(DEFAULTS.monthlyMaint); }
@@ -715,7 +716,7 @@ const SUMCOLS = [
   {k:"store",h:"Store"},{k:"name",h:"Name"},
   {k:"units",h:"Units",num:1,f:r=>fmt(r.units,0)},
   {k:"base",h:"Base rate",num:1,f:r=>money(r.base)},
-  {k:"adval",h:"Ad valorem",num:1,f:r=>money(r.adval)},
+  {k:"adval",h:"Buffer",num:1,f:r=>money(r.adval)},
   {k:"reg",h:"Registration",num:1,f:r=>money(r.reg)},
   {k:"gps",h:"GPS",num:1,f:r=>money(r.gps)},
   {k:"lytx",h:"Lytx",num:1,f:r=>money(r.lytx)},
@@ -759,7 +760,7 @@ function renderTypes(){
     {k:"n",h:"Units in avg.",num:1,f:t=>fmt(t.n,0)+(t.basis==="all"?' <span class="pill ex" title="No charge units; averaged over all locations">all locs</span>':"")+(t.unpriced?` <span class="pill warn" title="Units with no cost, charged the average">${t.unpriced} no cost</span>`:"")},
     {k:"delivered",h:"Avg delivered",num:1,f:t=>money(t.delivered,0)},
     {k:"base",h:"Base",num:1,f:t=>money(t.base)},
-    {k:"adval",h:"Ad val.",num:1,f:t=>money(t.adval)},
+    {k:"adval",h:"Buffer",num:1,f:t=>money(t.adval)},
     {k:"reg",h:"Reg.",num:1,f:t=>money(t.reg)},
     {k:"gps",h:"GPS",num:1,f:t=>money(t.gps)},
     {k:"lytx",h:"Lytx",num:1,f:t=>money(t.lytx)},
@@ -1029,7 +1030,7 @@ function renderAssumptions(){
   const fields = [
     ["year","Rate year","",1],
     ["fundingRate","Funding rate (annual %)","e.g. 6.25 for 6.25%",0.01],
-    ["adValPct","Ad valorem (% of delivered cost, annual)","Applied to all assets",0.01],
+    ["adValPct","Buffer (% of delivered cost, annual)","Covers discrepancies; applied to all assets",0.01],
     ["gps","GPS ($/month)","Road units only",0.01],
     ["lytx","Lytx ($/month)","Road units only",0.01],
   ].filter(Boolean);
@@ -1202,7 +1203,7 @@ $("btnExport").onclick = async ()=>{
   const wb = XLSX.utils.book_new();
   const r2=v=>v==null?null:Math.round(v*100)/100;
   const ch = CALC.stores.filter(s=>!s.excluded && s.units);
-  const sumRows = ch.map(s=>({"Store":s.store,"Store Name":s.name,"Units":s.units,"Base Rate":r2(s.base),"Ad Valorem":r2(s.adval),"Registration":r2(s.reg),"GPS":r2(s.gps),"Lytx":r2(s.lytx),"Maintenance":r2(s.maint),"Monthly Rate":r2(s.monthly),"Annual Rate":r2(s.annual),"Flagged Assets":s.flagged}));
+  const sumRows = ch.map(s=>({"Store":s.store,"Store Name":s.name,"Units":s.units,"Base Rate":r2(s.base),"Buffer":r2(s.adval),"Registration":r2(s.reg),"GPS":r2(s.gps),"Lytx":r2(s.lytx),"Maintenance":r2(s.maint),"Monthly Rate":r2(s.monthly),"Annual Rate":r2(s.annual),"Flagged Assets":s.flagged}));
   const ws1 = XLSX.utils.json_to_sheet(sumRows);
   const n=sumRows.length, L=["D","E","F","G","H","I","K","L","M"];
   XLSX.utils.sheet_add_aoa(ws1,[["TOTAL","",...["C","D","E","F","G","H","I","J","K"].map(c=>({f:`SUM(${c}2:${c}${n+1})`}))]],{origin:`A${n+2}`});
@@ -1210,12 +1211,12 @@ $("btnExport").onclick = async ()=>{
   XLSX.utils.book_append_sheet(wb, ws1, "Store Summary");
   const assetRow = r=>({"Store":r.store,"Store Name":r.storeName,"Asset":r.asset,"Template":r.template,"Rate Type":r.rtype,"Rate Class":r.cls,"Manufacturer":r.mfr,"Serial":r.serial,"Ownership":r.own,"Status":r.status,"Origination":r.orig,"Age (mo)":r.age,
     "Cost w/ Tax":r2(r.cost),"Cost Estimated":r.costEstimated?"Y":"","Aftermarket":r2(r.am),"Delivered Cost":r2(r.delivered),"Life (mo)":r.life,"Residual %":r.residPct/100,"Residual Value":r2(r.resid),
-    "Indiv. Base Rate":r2(r.ind.base),"Indiv. Ad Valorem":r2(r.ind.adval),"Indiv. Registration":r2(r.ind.reg),"Indiv. Monthly Rate":r2(r.indMonthly),
+    "Indiv. Base Rate":r2(r.ind.base),"Indiv. Buffer":r2(r.ind.adval),"Indiv. Registration":r2(r.ind.reg),"Indiv. Monthly Rate":r2(r.indMonthly),
     "Maint in Rate":r2(r.maint),"Type Rate":r2(r.typeRate),"Monthly Charge":r2(r.monthly),
     "Charged":r.counted?"Y":"N","Flags":r.flags.map(f=>f[0]).join("; ")});
   const typeRows = Object.values(CALC.TYPE).filter(t=>t.units>0).sort((a,b)=>CLASS_ORDER.indexOf(a.cls)-CLASS_ORDER.indexOf(b.cls)||a.template.localeCompare(b.template))
     .map(t=>({"Asset Type":t.template,"Includes Templates":t.templates.join(" + "),"Rate Class":t.cls,"Charge Units":t.units,"Units in Average":t.n,"Units w/o Cost":t.unpriced,"Avg Delivered Cost":r2(t.delivered),
-      "Base Rate":t.base,"Ad Valorem":t.adval,"Registration":t.reg,"GPS":t.gps,"Lytx":t.lytx,"Maintenance":t.maint,"Maint Basis":t.um?(t.um.meas==="unit-month"?"Fexa avg per unit-month":`$${t.um.meas==="mile"?t.um.rate.toFixed(3)+"/mi":t.um.rate.toFixed(2)+"/hr"} × ${t.um.mo} ${t.um.meas==="mile"?"mi":"hr"}/mo`+(t.um.locked?" (locked)":"")+(t.um.borrowedFrom?` (${t.um.borrowedFrom} rate)`:"")):"Fixed class amount","Monthly Rate":r2(t.rate),"Annual Rate":r2(t.rate*12),
+      "Base Rate":t.base,"Buffer":t.adval,"Registration":t.reg,"GPS":t.gps,"Lytx":t.lytx,"Maintenance":t.maint,"Maint Basis":t.um?(t.um.meas==="unit-month"?"Fexa avg per unit-month":`$${t.um.meas==="mile"?t.um.rate.toFixed(3)+"/mi":t.um.rate.toFixed(2)+"/hr"} × ${t.um.mo} ${t.um.meas==="mile"?"mi":"hr"}/mo`+(t.um.locked?" (locked)":"")+(t.um.borrowedFrom?` (${t.um.borrowedFrom} rate)`:"")):"Fixed class amount","Monthly Rate":r2(t.rate),"Annual Rate":r2(t.rate*12),
       "Indiv. Low":r2(t.min),"Indiv. High":r2(t.max),"Monthly × Units":r2(t.rate*t.units)}));
   const wsT=XLSX.utils.json_to_sheet(typeRows); wsT["!cols"]=[{wch:28},{wch:18},...Array(16).fill({wch:13})];
   XLSX.utils.book_append_sheet(wb, wsT, "Rate by Asset Type");
@@ -1262,7 +1263,7 @@ $("btnExport").onclick = async ()=>{
   const fl=flagList("all").map(f=>({"Severity":f.sev==="bad"?"Fix":f.sev==="warn"?"Check":"Info","Flag":f.type,"Store":f.store,"Excluded Location":f.excluded?"Y":"","Asset":f.asset,"Template":f.template,"Detail":f.msg}));
   const ws4=XLSX.utils.json_to_sheet(fl.length?fl:[{"Flag":"None"}]); ws4["!cols"]=[{wch:9},{wch:18},{wch:7},{wch:9},{wch:10},{wch:24},{wch:80}];
   XLSX.utils.book_append_sheet(wb, ws4, "Flags");
-  const as=[["Rate year",S.year],["Funding rate (annual)",S.fundingRate==null?"NOT SET":S.fundingRate/100],["Ad valorem % (annual)",S.adValPct/100],["GPS $/mo",S.gps],["Lytx $/mo",S.lytx],["Pickup maintenance $/mile (locked)",(S.lockedMaint||{}).Pickup??"not locked"],["Car maintenance $/mile (locked)",(S.lockedMaint||{}).Car??"not locked"],["Flat monthly maintenance (types with miles/hours)",(S.monthlyMaint||[]).join(", ")||"none"],["Maintenance average",S.maintAvg==="weighted"?"Weighted (spend ÷ usage)":"Simple average of unit rates"],["Planned 2027 changes",plannedOn()?`${S.planned.replace.length} new ${S.planned.template} at $${S.planned.cost} replacing ${S.planned.replace.join(", ")}; new-unit maint $${S.planned.newRate}/mi`:"none"],["All-in cost cutoff (months)",S.allInMonths??"none"],["Charge loaners",S.includeLoaners?"Yes":"No"],["Excluded locations",S.excluded.join(", ")],[],
+  const as=[["Rate year",S.year],["Funding rate (annual)",S.fundingRate==null?"NOT SET":S.fundingRate/100],["Buffer % (annual)",S.adValPct/100],["GPS $/mo",S.gps],["Lytx $/mo",S.lytx],["Pickup maintenance $/mile (locked)",(S.lockedMaint||{}).Pickup??"not locked"],["Car maintenance $/mile (locked)",(S.lockedMaint||{}).Car??"not locked"],["Flat monthly maintenance (types with miles/hours)",(S.monthlyMaint||[]).join(", ")||"none"],["Maintenance average",S.maintAvg==="weighted"?"Weighted (spend ÷ usage)":"Simple average of unit rates"],["Planned 2027 changes",plannedOn()?`${S.planned.replace.length} new ${S.planned.template} at $${S.planned.cost} replacing ${S.planned.replace.join(", ")}; new-unit maint $${S.planned.newRate}/mi`:"none"],["All-in cost cutoff (months)",S.allInMonths??"none"],["Charge loaners",S.includeLoaners?"Yes":"No"],["Excluded locations",S.excluded.join(", ")],[],
     ["Class","Life (mo)","Residual %","Registration %","GPS","Lytx","Fixed Maint $/mo (no-usage types)"],
     ...CLASS_ORDER.map(c=>{const C=S.classes[c];return [c,C.life,C.resid/100,C.reg/100,C.gps?"Y":"N",C.lytx?"Y":"N",C.maint];}),[],
     ["Life by asset type (overrides class)"],...Object.entries(S.lifeByType||{}).map(([k,v])=>[k,v]),[],
